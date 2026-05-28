@@ -5,7 +5,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Elaborador de Rankings - Natação</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/docx/8.5.0/docx.umd.min.js"></script>
+<script src="https://unpkg.com/html-docx-js/dist/html-docx.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
 <style>
@@ -529,6 +530,9 @@
 <script>
 let allData = []; // raw normalised records
 let filteredData = [];
+let originalRows = []; // raw rows from the uploaded Excel (for re-export)
+let originalHeaders = []; // header row from the uploaded Excel
+let originalFilename = ""; // filename of uploaded file
 
 // === Helpers ===
 function timeToSeconds(t) {
@@ -748,6 +752,9 @@ function handleFile(e) {
 
 function processWorkbook(wb, filename) {
   allData = [];
+  originalRows = [];
+  originalHeaders = [];
+  originalFilename = filename;
   const headerRow = ["COURSE","GENDER","DISTANCE","STROKE","FULLNAME","BIRTHDATE","NATION","CLUBCODE","SWIMTIME","SWIMTIME_N","PTS_FINA","PTS_RUDOLPH","PLACE","MEETDATE","MEETCITY","MEETNAME","CLUBNAME","REGION"];
 
   for (const sheetName of wb.SheetNames) {
@@ -757,6 +764,9 @@ function processWorkbook(wb, filename) {
     if (!rows || rows.length < 3) continue;
     // header is row index 1 (second row); data starts row index 2
     const headerIdx = rows[1];
+    if (originalHeaders.length === 0) {
+      originalHeaders = headerIdx.map(h => h ? String(h).trim() : "");
+    }
     // Map header positions
     const idx = {};
     headerIdx.forEach((h, i) => { if (h) idx[String(h).trim()] = i; });
@@ -768,6 +778,8 @@ function processWorkbook(wb, filename) {
       if (!row || row.every(c => c === null || c === "")) continue;
       const fullname = row[idx.FULLNAME];
       if (!fullname) continue;
+      // Keep raw row for re-export
+      originalRows.push([...row]);
       const rec = {
         sheet: sheetName,
         course: row[idx.COURSE],
@@ -990,111 +1002,177 @@ function exportarCSV() {
 
 function exportarExcel() {
   if (filteredData.length === 0) return;
-  const headers = ["Pos","Nome","Sexo","Ano Nasc.","Escalão","Prova","Tempo","Pts FINA","Clube","Região","Competição","Local","Data"];
-  const aoa = [headers];
-  filteredData.forEach((r, i) => {
-    const dt = parseDate(r.meetdate);
-    aoa.push([
-      i + 1,
-      r.fullname || "",
-      r.gender || "",
-      r.year || "",
-      escalaoLabels[r.escalao] || "",
-      r.prova,
-      r.swimtime || secondsToTime(r.swimtime_n),
-      r.pts_fina || 0,
-      r.clubname || "",
-      r.region || "",
-      r.meetname || "",
-      r.meetcity || "",
-      dt ? dt.toLocaleDateString("pt-PT") : ""
-    ]);
-  });
-  const ws = XLSX.utils.aoa_to_sheet(aoa);
-  ws["!cols"] = [
-    {wch:5},{wch:30},{wch:5},{wch:8},{wch:8},{wch:12},{wch:10},
-    {wch:9},{wch:30},{wch:8},{wch:35},{wch:18},{wch:11}
-  ];
-  // Bold header row via cell styling (note: XLSX core doesn't write styles; readers usually still bold header from format hints—keep simple)
-  const wb = XLSX.utils.book_new();
-  const sheetName = `Ranking_${todayISO()}`.slice(0,31);
-  XLSX.utils.book_append_sheet(wb, ws, sheetName);
-  XLSX.writeFile(wb, `ranking_${todayISO()}.xlsx`);
+  try {
+    const wb = XLSX.utils.book_new();
+
+    // === SHEET 1: Ranking filtrado ===
+    const headers = ["Pos","Nome","Sexo","Ano Nasc.","Escalão","Prova","Tempo","Pts FINA","Clube","Região","Competição","Local","Data"];
+    const aoa = [headers];
+    filteredData.forEach((r, i) => {
+      const dt = parseDate(r.meetdate);
+      aoa.push([
+        i + 1,
+        r.fullname || "",
+        r.gender || "",
+        r.year || "",
+        escalaoLabels[r.escalao] || "",
+        r.prova,
+        r.swimtime || secondsToTime(r.swimtime_n),
+        r.pts_fina || 0,
+        r.clubname || "",
+        r.region || "",
+        r.meetname || "",
+        r.meetcity || "",
+        dt ? dt.toLocaleDateString("pt-PT") : ""
+      ]);
+    });
+    const wsRank = XLSX.utils.aoa_to_sheet(aoa);
+    wsRank["!cols"] = [
+      {wch:5},{wch:30},{wch:5},{wch:8},{wch:8},{wch:14},{wch:10},
+      {wch:9},{wch:30},{wch:10},{wch:35},{wch:18},{wch:11}
+    ];
+    // Freeze header row
+    wsRank["!freeze"] = { xSplit: 0, ySplit: 1 };
+    XLSX.utils.book_append_sheet(wb, wsRank, "Ranking");
+
+    // === SHEET 2: Dados originais ===
+    if (originalRows.length > 0) {
+      const origAoa = [originalHeaders, ...originalRows];
+      const wsOrig = XLSX.utils.aoa_to_sheet(origAoa);
+      // Reasonable column widths based on header names
+      wsOrig["!cols"] = originalHeaders.map(h => {
+        const len = String(h || "").length;
+        return { wch: Math.max(10, Math.min(30, len + 4)) };
+      });
+      XLSX.utils.book_append_sheet(wb, wsOrig, "Dados Originais");
+    }
+
+    // === SHEET 3 (opcional): Resumo ===
+    const filtroResumo = resumoFiltrosLista();
+    const resumoAoa = [
+      ["Resumo da Exportação"],
+      [],
+      ["Ficheiro origem", originalFilename || "—"],
+      ["Época ativa", SEASON.name || "—"],
+      ["Gerado em", new Date().toLocaleString("pt-PT")],
+      ["Total de registos no ficheiro", allData.length],
+      ["Registos no ranking", filteredData.length],
+      [],
+      ["Filtros aplicados"],
+      ...filtroResumo
+    ];
+    const wsResumo = XLSX.utils.aoa_to_sheet(resumoAoa);
+    wsResumo["!cols"] = [{wch:35},{wch:50}];
+    XLSX.utils.book_append_sheet(wb, wsResumo, "Resumo");
+
+    XLSX.writeFile(wb, `ranking_${todayISO()}.xlsx`);
+  } catch (err) {
+    console.error(err);
+    alert("Erro ao exportar Excel: " + err.message);
+  }
 }
 
-async function exportarWord() {
+function resumoFiltrosLista() {
+  const lista = [];
+  const get = id => document.getElementById(id).value;
+  const map = {
+    fProva: "Prova", fSexo: "Sexo", fEscalao: "Escalão", fAno: "Ano de nascimento",
+    fPtsMin: "Pontos FINA mínimo", fTempoMax: "Tempo máximo (s)", fClube: "Clube",
+    fRegiao: "Região", fNome: "Nome contém", fTopN: "Top N"
+  };
+  Object.entries(map).forEach(([id, label]) => {
+    const v = get(id);
+    if (v) lista.push([label, v]);
+  });
+  const ordemSel = document.getElementById("fOrdem");
+  lista.push(["Ordenação", ordemSel.options[ordemSel.selectedIndex].text]);
+  return lista.length ? lista : [["—", "Nenhum filtro aplicado"]];
+}
+
+function exportarWord() {
   if (filteredData.length === 0) return;
-  const D = window.docx;
-  if (!D) { alert("Biblioteca Word não disponível."); return; }
+  try {
+    if (typeof htmlDocx === "undefined" || !htmlDocx.asBlob) {
+      alert("Biblioteca Word não disponível. Verifica a ligação à Internet e recarrega a página.");
+      return;
+    }
 
-  const headers = ["#","Nome","Sexo","Nasc.","Esc.","Prova","Tempo","Pts FINA","Clube","Região","Competição","Data"];
-  const headerCells = headers.map(h => new D.TableCell({
-    width: { size: 100/headers.length, type: D.WidthType.PERCENTAGE },
-    shading: { fill: "003A70" },
-    children: [new D.Paragraph({
-      children: [new D.TextRun({ text: h, bold: true, color: "FFFFFF", size: 16 })]
-    })]
-  }));
-  const headerRow = new D.TableRow({ children: headerCells, tableHeader: true });
+    const filtroResumo = resumoFiltros();
 
-  const dataRows = filteredData.map((r, i) => {
-    const dt = parseDate(r.meetdate);
-    const vals = [
-      String(i + 1),
-      r.fullname || "",
-      r.gender || "",
-      String(r.year || ""),
-      escalaoLabels[r.escalao] || "",
-      r.prova,
-      r.swimtime || secondsToTime(r.swimtime_n),
-      String(r.pts_fina || 0),
-      r.clubname || "",
-      r.region || "",
-      r.meetname || "",
-      dt ? dt.toLocaleDateString("pt-PT") : ""
-    ];
-    return new D.TableRow({
-      children: vals.map(v => new D.TableCell({
-        children: [new D.Paragraph({
-          children: [new D.TextRun({ text: String(v), size: 14 })]
-        })]
-      }))
+    // Build the table HTML
+    let tableHtml = `
+      <table border="1" cellspacing="0" cellpadding="4" style="border-collapse:collapse; width:100%; font-family:Calibri,Arial,sans-serif; font-size:9pt;">
+        <thead>
+          <tr style="background-color:#003A70; color:white;">
+            <th style="padding:6px;">#</th>
+            <th style="padding:6px;">Nome</th>
+            <th style="padding:6px;">Sexo</th>
+            <th style="padding:6px;">Nasc.</th>
+            <th style="padding:6px;">Esc.</th>
+            <th style="padding:6px;">Prova</th>
+            <th style="padding:6px;">Tempo</th>
+            <th style="padding:6px;">Pts FINA</th>
+            <th style="padding:6px;">Clube</th>
+            <th style="padding:6px;">Região</th>
+            <th style="padding:6px;">Competição</th>
+            <th style="padding:6px;">Data</th>
+          </tr>
+        </thead>
+        <tbody>
+    `;
+    filteredData.forEach((r, i) => {
+      const dt = parseDate(r.meetdate);
+      const dtStr = dt ? dt.toLocaleDateString("pt-PT") : "";
+      const bg = i % 2 === 0 ? "#FFFFFF" : "#F4F6F9";
+      tableHtml += `<tr style="background-color:${bg};">
+        <td style="padding:4px; text-align:center;"><b>${i + 1}</b></td>
+        <td style="padding:4px;"><b>${escapeHtml(r.fullname || "")}</b></td>
+        <td style="padding:4px; text-align:center;">${r.gender || ""}</td>
+        <td style="padding:4px; text-align:center;">${r.year || ""}</td>
+        <td style="padding:4px; text-align:center;">${escalaoLabels[r.escalao] || ""}</td>
+        <td style="padding:4px;">${escapeHtml(r.prova)}</td>
+        <td style="padding:4px; text-align:right; font-family:Consolas,monospace;">${escapeHtml(r.swimtime || secondsToTime(r.swimtime_n))}</td>
+        <td style="padding:4px; text-align:right; color:#0066b3;"><b>${r.pts_fina || 0}</b></td>
+        <td style="padding:4px;">${escapeHtml(r.clubname || "")}</td>
+        <td style="padding:4px;">${escapeHtml(r.region || "")}</td>
+        <td style="padding:4px;">${escapeHtml(r.meetname || "")}</td>
+        <td style="padding:4px; text-align:center;">${dtStr}</td>
+      </tr>`;
     });
-  });
+    tableHtml += "</tbody></table>";
 
-  const table = new D.Table({
-    rows: [headerRow, ...dataRows],
-    width: { size: 100, type: D.WidthType.PERCENTAGE }
-  });
+    const full = `
+      <!DOCTYPE html>
+      <html><head><meta charset="utf-8"><title>Ranking</title></head>
+      <body style="font-family:Calibri,Arial,sans-serif;">
+        <h1 style="color:#003A70; margin-bottom:4px;">Ranking de Natação</h1>
+        <p style="color:#4A5B71; font-size:10pt; margin-top:0;">
+          Época ${escapeHtml(SEASON.name)} — Gerado em ${new Date().toLocaleString("pt-PT")}
+        </p>
+        <p style="font-size:10pt;"><b>Filtros aplicados:</b> ${escapeHtml(filtroResumo)}</p>
+        <p style="font-size:10pt;"><i>Total de resultados: ${filteredData.length}</i></p>
+        ${tableHtml}
+      </body></html>
+    `;
 
-  const filtroResumo = resumoFiltros();
-  const doc = new D.Document({
-    sections: [{
-      properties: { page: { size: { orientation: D.PageOrientation.LANDSCAPE } } },
-      children: [
-        new D.Paragraph({
-          children: [new D.TextRun({ text: "Ranking de Natação", bold: true, size: 32, color: "003A70" })]
-        }),
-        new D.Paragraph({
-          children: [new D.TextRun({ text: `Época ${SEASON.name} — Gerado em ${new Date().toLocaleString("pt-PT")}`, size: 18, color: "4A5B71" })],
-          spacing: { after: 200 }
-        }),
-        new D.Paragraph({
-          children: [new D.TextRun({ text: "Filtros aplicados: ", bold: true, size: 16 }),
-                     new D.TextRun({ text: filtroResumo, size: 16 })],
-          spacing: { after: 200 }
-        }),
-        new D.Paragraph({
-          children: [new D.TextRun({ text: `Total de resultados: ${filteredData.length}`, italics: true, size: 16 })],
-          spacing: { after: 300 }
-        }),
-        table
-      ]
-    }]
-  });
+    const blob = htmlDocx.asBlob(full, { orientation: "landscape", margins: { top: 720, right: 720, bottom: 720, left: 720 } });
+    if (typeof saveAs !== "undefined") {
+      saveAs(blob, `ranking_${todayISO()}.docx`);
+    } else {
+      downloadBlob(blob, `ranking_${todayISO()}.docx`);
+    }
+  } catch (err) {
+    console.error(err);
+    alert("Erro ao exportar Word: " + err.message);
+  }
+}
 
-  const blob = await D.Packer.toBlob(doc);
-  downloadBlob(blob, `ranking_${todayISO()}.docx`);
+function escapeHtml(s) {
+  return String(s == null ? "" : s)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
 }
 
 function resumoFiltros() {
