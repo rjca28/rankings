@@ -336,6 +336,61 @@
   }
   .gender-toggle button.active[data-gender="F"] { color: #c2185b; }
   .gender-toggle button.active[data-gender="M"] { color: #1565c0; }
+
+  .tabs {
+    display: flex;
+    gap: 4px;
+    background: white;
+    padding: 6px;
+    border-radius: 8px;
+    margin-bottom: 16px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+  }
+  .tab-btn {
+    flex: 1;
+    padding: 12px 18px;
+    border: none;
+    background: transparent;
+    color: #4a5b71;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    border-radius: 6px;
+    transition: all 0.15s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+  }
+  .tab-btn:hover { background: #f4f6f9; }
+  .tab-btn.active {
+    background: linear-gradient(135deg, #003a70 0%, #0066b3 100%);
+    color: white;
+    box-shadow: 0 2px 6px rgba(0,58,112,0.25);
+  }
+  .tab-btn .tab-icon { font-size: 18px; }
+  .tab-btn .tab-badge {
+    background: rgba(255,255,255,0.25);
+    padding: 2px 8px;
+    border-radius: 10px;
+    font-size: 11px;
+    font-weight: 700;
+  }
+  .tab-btn:not(.active) .tab-badge {
+    background: #e8eef5;
+    color: #003a70;
+  }
+  .tab-content { display: none; }
+  .tab-content.active { display: block; animation: tabIn 0.2s ease-out; }
+  @keyframes tabIn {
+    from { opacity: 0; transform: translateY(4px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  .tab-btn:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+  }
+  .tab-btn:disabled:hover { background: transparent; }
 </style>
 </head>
 <body>
@@ -344,6 +399,20 @@
   <h1>Elaborador de Rankings de Natação</h1>
   <p>Carregue um ficheiro Excel da FPN e gere rankings personalizados com filtros</p>
 </header>
+
+<div class="tabs">
+  <button class="tab-btn active" id="tabBtn1" onclick="mudarTab(1)">
+    <span class="tab-icon">⚙️</span>
+    <span>Configuração</span>
+  </button>
+  <button class="tab-btn" id="tabBtn2" onclick="mudarTab(2)" disabled>
+    <span class="tab-icon">📊</span>
+    <span>Filtros &amp; Ranking</span>
+    <span class="tab-badge" id="tabBadge" style="display:none;">0</span>
+  </button>
+</div>
+
+<div class="tab-content active" id="tab1">
 
 <div class="panel">
   <h2>1. Carregar Ficheiro Excel</h2>
@@ -403,6 +472,10 @@
     </div>
   </details>
 </div>
+
+</div> <!-- /tab1 -->
+
+<div class="tab-content" id="tab2">
 
 <div class="panel" id="filtersPanel" style="display:none;">
   <h2>2. Filtros</h2>
@@ -508,6 +581,8 @@
   </div>
 </div>
 
+</div> <!-- /tab2 -->
+
 <!-- Swimmer profile modal -->
 <div class="modal-overlay" id="swimmerModal" onclick="if(event.target===this)fecharModal()">
   <div class="modal">
@@ -572,6 +647,35 @@ function parseDate(d) {
 function getYear(d) {
   const dt = parseDate(d);
   return dt ? dt.getFullYear() : null;
+}
+
+// === Tabs ===
+function mudarTab(n) {
+  const btn = document.getElementById(`tabBtn${n}`);
+  if (btn.disabled) return;
+  for (let i = 1; i <= 2; i++) {
+    document.getElementById(`tabBtn${i}`).classList.toggle("active", i === n);
+    document.getElementById(`tab${i}`).classList.toggle("active", i === n);
+  }
+  // scroll to top of content
+  window.scrollTo({ top: 0, behavior: "smooth" });
+}
+
+function ativarTabRanking(autoSwitch = true) {
+  const btn = document.getElementById("tabBtn2");
+  btn.disabled = false;
+  if (autoSwitch) mudarTab(2);
+}
+
+function atualizarBadgeTab() {
+  const badge = document.getElementById("tabBadge");
+  if (!badge) return;
+  if (filteredData && filteredData.length > 0) {
+    badge.textContent = filteredData.length;
+    badge.style.display = "inline-block";
+  } else {
+    badge.style.display = "none";
+  }
 }
 
 // === Season configuration (persisted in localStorage) ===
@@ -814,6 +918,7 @@ function processWorkbook(wb, filename) {
   document.getElementById("filtersPanel").style.display = "block";
   populateFilters();
   aplicarFiltros();
+  ativarTabRanking(true);
 }
 
 function populateFilters() {
@@ -889,6 +994,7 @@ function aplicarFiltros() {
   }
 
   render();
+  atualizarBadgeTab();
 }
 
 function setGenero(value) {
