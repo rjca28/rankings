@@ -1,0 +1,1408 @@
+<!DOCTYPE html>
+<html lang="pt-PT">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Elaborador de Rankings - Natação</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/docx/8.5.0/docx.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    background: #f4f6f9;
+    color: #1a2332;
+    padding: 16px;
+    line-height: 1.4;
+  }
+  header {
+    background: linear-gradient(135deg, #003a70 0%, #0066b3 100%);
+    color: white;
+    padding: 20px 24px;
+    border-radius: 8px;
+    margin-bottom: 16px;
+    box-shadow: 0 2px 8px rgba(0,58,112,0.15);
+  }
+  header h1 { font-size: 22px; margin-bottom: 4px; }
+  header p { font-size: 13px; opacity: 0.9; }
+
+  .panel {
+    background: white;
+    border-radius: 8px;
+    padding: 16px;
+    margin-bottom: 16px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+  }
+  .panel h2 {
+    font-size: 14px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: #003a70;
+    margin-bottom: 12px;
+    padding-bottom: 8px;
+    border-bottom: 2px solid #e8eef5;
+  }
+
+  .upload-box {
+    border: 2px dashed #b0bfd0;
+    border-radius: 8px;
+    padding: 24px;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.2s;
+    background: #fafbfd;
+  }
+  .upload-box:hover { border-color: #0066b3; background: #f0f7ff; }
+  .upload-box.has-file { border-color: #1e9e4a; background: #f0faf3; }
+  .upload-box input { display: none; }
+  .upload-box .icon { font-size: 32px; margin-bottom: 8px; }
+  .upload-box .text { font-size: 14px; color: #4a5b71; }
+  .upload-box .filename { font-weight: 600; color: #1e9e4a; }
+
+  .filters {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 12px;
+  }
+  .filter-group { display: flex; flex-direction: column; }
+  .filter-group label {
+    font-size: 12px;
+    font-weight: 600;
+    color: #4a5b71;
+    margin-bottom: 4px;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+  }
+  .filter-group select,
+  .filter-group input {
+    padding: 8px 10px;
+    border: 1px solid #d0dae5;
+    border-radius: 6px;
+    font-size: 13px;
+    background: white;
+    transition: border-color 0.15s;
+  }
+  .filter-group select:focus,
+  .filter-group input:focus {
+    outline: none;
+    border-color: #0066b3;
+    box-shadow: 0 0 0 3px rgba(0,102,179,0.1);
+  }
+
+  .actions {
+    display: flex;
+    gap: 8px;
+    margin-top: 12px;
+    flex-wrap: wrap;
+  }
+  button {
+    padding: 9px 18px;
+    border: none;
+    border-radius: 6px;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  button.primary { background: #0066b3; color: white; }
+  button.primary:hover { background: #00568f; }
+  button.secondary { background: #e8eef5; color: #1a2332; }
+  button.secondary:hover { background: #d0dae5; }
+  button.success { background: #1e9e4a; color: white; }
+  button.success:hover { background: #178038; }
+  button:disabled { opacity: 0.5; cursor: not-allowed; }
+
+  .stats {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    gap: 8px;
+    margin-bottom: 12px;
+  }
+  .stat {
+    background: #f0f7ff;
+    border-left: 3px solid #0066b3;
+    padding: 8px 12px;
+    border-radius: 4px;
+  }
+  .stat .label { font-size: 11px; color: #4a5b71; text-transform: uppercase; }
+  .stat .value { font-size: 18px; font-weight: 700; color: #003a70; }
+
+  .table-wrap { overflow-x: auto; }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 12px;
+  }
+  thead { background: #003a70; color: white; position: sticky; top: 0; }
+  th {
+    padding: 8px 10px;
+    text-align: left;
+    font-weight: 600;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+    white-space: nowrap;
+  }
+  td {
+    padding: 8px 10px;
+    border-bottom: 1px solid #eef2f7;
+  }
+  tbody tr:hover { background: #f7fafd; }
+  tbody tr:nth-child(odd) { background: #fafbfd; }
+  tbody tr:nth-child(odd):hover { background: #f0f7ff; }
+  .rank {
+    font-weight: 700;
+    color: #003a70;
+    text-align: center;
+    width: 50px;
+  }
+  .rank.top1 { color: #d4a017; font-size: 14px; }
+  .rank.top2 { color: #708090; font-size: 13px; }
+  .rank.top3 { color: #b87333; font-size: 13px; }
+  .time { font-family: "SF Mono", Consolas, monospace; font-weight: 600; }
+  .pts { font-weight: 700; color: #0066b3; }
+  .gender-f { color: #c2185b; font-weight: 600; }
+  .gender-m { color: #1565c0; font-weight: 600; }
+
+  .empty {
+    text-align: center;
+    padding: 40px 20px;
+    color: #8092a8;
+    font-style: italic;
+  }
+
+  .badge {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 10px;
+    font-size: 10px;
+    font-weight: 600;
+    background: #e8eef5;
+    color: #003a70;
+  }
+
+  .season-config {
+    background: #fffbe6;
+    border: 1px solid #f0d062;
+    border-radius: 6px;
+    padding: 12px;
+    margin-bottom: 12px;
+    font-size: 13px;
+  }
+  .season-config summary {
+    cursor: pointer;
+    font-weight: 600;
+    color: #6b5400;
+    user-select: none;
+  }
+  .season-config summary:hover { color: #4a3a00; }
+  .season-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 10px;
+    margin-top: 12px;
+  }
+  .season-grid .filter-group input { width: 100%; }
+  .season-info {
+    background: #f0f7ff;
+    border-left: 3px solid #0066b3;
+    padding: 8px 12px;
+    border-radius: 4px;
+    margin-top: 10px;
+    font-size: 12px;
+    color: #003a70;
+  }
+  .season-active {
+    font-size: 12px;
+    color: #4a5b71;
+    margin-top: 6px;
+  }
+  .season-active strong { color: #003a70; }
+
+  .swimmer-link {
+    color: #0066b3;
+    cursor: pointer;
+    text-decoration: none;
+    border-bottom: 1px dashed transparent;
+    transition: border-color 0.15s;
+  }
+  .swimmer-link:hover {
+    border-bottom-color: #0066b3;
+  }
+
+  .modal-overlay {
+    display: none;
+    position: fixed;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    background: rgba(0, 30, 60, 0.55);
+    z-index: 1000;
+    justify-content: center;
+    align-items: flex-start;
+    padding: 24px 16px;
+    overflow-y: auto;
+  }
+  .modal-overlay.active { display: flex; }
+  .modal {
+    background: white;
+    border-radius: 10px;
+    max-width: 900px;
+    width: 100%;
+    box-shadow: 0 10px 40px rgba(0,0,0,0.25);
+    overflow: hidden;
+    animation: modalIn 0.18s ease-out;
+  }
+  @keyframes modalIn {
+    from { opacity: 0; transform: translateY(-10px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  .modal-header {
+    background: linear-gradient(135deg, #003a70 0%, #0066b3 100%);
+    color: white;
+    padding: 16px 20px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  .modal-header h3 { font-size: 18px; margin: 0; }
+  .modal-header .sub { font-size: 12px; opacity: 0.85; margin-top: 2px; }
+  .modal-close {
+    background: rgba(255,255,255,0.2);
+    border: none;
+    color: white;
+    width: 32px; height: 32px;
+    border-radius: 50%;
+    cursor: pointer;
+    font-size: 18px;
+    line-height: 1;
+  }
+  .modal-close:hover { background: rgba(255,255,255,0.35); }
+  .modal-body {
+    padding: 20px;
+    max-height: 70vh;
+    overflow-y: auto;
+  }
+  .modal-actions {
+    padding: 12px 20px;
+    background: #f4f6f9;
+    border-top: 1px solid #e8eef5;
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+  }
+  .info-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    gap: 8px;
+    margin-bottom: 16px;
+  }
+  .info-grid .info-cell {
+    background: #f4f6f9;
+    padding: 8px 12px;
+    border-radius: 6px;
+    border-left: 3px solid #0066b3;
+  }
+  .info-grid .info-cell .lbl { font-size: 10px; text-transform: uppercase; color: #4a5b71; letter-spacing: 0.3px; }
+  .info-grid .info-cell .val { font-size: 14px; font-weight: 600; color: #003a70; }
+
+  .gender-toggle {
+    display: flex;
+    gap: 4px;
+    background: #e8eef5;
+    padding: 3px;
+    border-radius: 6px;
+  }
+  .gender-toggle button {
+    flex: 1;
+    padding: 7px 8px;
+    border: none;
+    background: transparent;
+    color: #4a5b71;
+    border-radius: 4px;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  .gender-toggle button:hover { background: rgba(255,255,255,0.6); }
+  .gender-toggle button.active {
+    background: white;
+    color: #003a70;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+  }
+  .gender-toggle button.active[data-gender="F"] { color: #c2185b; }
+  .gender-toggle button.active[data-gender="M"] { color: #1565c0; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>Elaborador de Rankings de Natação</h1>
+  <p>Carregue um ficheiro Excel da FPN e gere rankings personalizados com filtros</p>
+</header>
+
+<div class="panel">
+  <h2>1. Carregar Ficheiro Excel</h2>
+  <label class="upload-box" id="uploadBox">
+    <input type="file" id="fileInput" accept=".xlsx,.xls">
+    <div class="icon">📊</div>
+    <div class="text" id="uploadText">Clique para escolher o ficheiro (ou arraste aqui)</div>
+  </label>
+  <div class="season-active" id="seasonActive"></div>
+</div>
+
+<div class="panel">
+  <h2>Configuração de Época</h2>
+  <details class="season-config" id="seasonDetails">
+    <summary>⚙️ Definir anos de nascimento por escalão (clique para expandir)</summary>
+    <div class="season-info">
+      Em cada nova época, os escalões deslocam-se um ano. Atualiza aqui os anos de nascimento e a configuração fica guardada no teu browser para futuras utilizações.
+    </div>
+    <div class="season-grid">
+      <div class="filter-group">
+        <label>Nome da época</label>
+        <input type="text" id="cfgSeasonName" placeholder="ex: 2026/2027">
+      </div>
+      <div class="filter-group">
+        <label>Infantis B (1 ano)</label>
+        <input type="number" id="cfgInfB" placeholder="ex: 2014" min="1900" max="2100">
+      </div>
+      <div class="filter-group">
+        <label>Infantis A (1 ano)</label>
+        <input type="number" id="cfgInfA" placeholder="ex: 2013" min="1900" max="2100">
+      </div>
+      <div class="filter-group">
+        <label>Juvenis B (1 ano)</label>
+        <input type="number" id="cfgJuvB" placeholder="ex: 2012" min="1900" max="2100">
+      </div>
+      <div class="filter-group">
+        <label>Juvenis A (1 ano)</label>
+        <input type="number" id="cfgJuvA" placeholder="ex: 2011" min="1900" max="2100">
+      </div>
+      <div class="filter-group">
+        <label>Juniores - ano início (2 anos)</label>
+        <input type="number" id="cfgJunStart" placeholder="ex: 2009" min="1900" max="2100">
+      </div>
+      <div class="filter-group">
+        <label>Juniores - ano fim</label>
+        <input type="number" id="cfgJunEnd" placeholder="ex: 2010" min="1900" max="2100">
+      </div>
+      <div class="filter-group">
+        <label>Seniores (este ano e + velhos)</label>
+        <input type="number" id="cfgSen" placeholder="ex: 2008" min="1900" max="2100">
+      </div>
+    </div>
+    <div class="actions">
+      <button class="primary" onclick="guardarEpoca()">Guardar Época</button>
+      <button class="secondary" onclick="proximaEpoca()">→ Avançar 1 época</button>
+      <button class="secondary" onclick="reporEpocaDefault()">Repor 2026/2027</button>
+    </div>
+  </details>
+</div>
+
+<div class="panel" id="filtersPanel" style="display:none;">
+  <h2>2. Filtros</h2>
+  <div class="filters">
+    <div class="filter-group">
+      <label>Prova (Distância + Estilo)</label>
+      <select id="fProva"><option value="">Todas</option></select>
+    </div>
+    <div class="filter-group">
+      <label>Género</label>
+      <div class="gender-toggle" id="genderToggle">
+        <button type="button" class="active" data-gender="" onclick="setGenero('')">Ambos</button>
+        <button type="button" data-gender="F" onclick="setGenero('F')">♀ Feminino</button>
+        <button type="button" data-gender="M" onclick="setGenero('M')">♂ Masculino</button>
+      </div>
+      <input type="hidden" id="fSexo" value="">
+    </div>
+    <div class="filter-group">
+      <label>Escalão</label>
+      <select id="fEscalao">
+        <option value="">Todos</option>
+        <option value="InfB" data-base="Infantis B">Infantis B</option>
+        <option value="InfA" data-base="Infantis A">Infantis A</option>
+        <option value="JuvB" data-base="Juvenis B">Juvenis B</option>
+        <option value="JuvA" data-base="Juvenis A">Juvenis A</option>
+        <option value="Jun" data-base="Juniores">Juniores</option>
+        <option value="Sen" data-base="Seniores">Seniores</option>
+        <option value="Inf" data-base="Infantis (A+B)">Infantis (A+B)</option>
+        <option value="Juv" data-base="Juvenis (A+B)">Juvenis (A+B)</option>
+      </select>
+    </div>
+    <div class="filter-group">
+      <label>Ano de Nascimento</label>
+      <select id="fAno"><option value="">Todos</option></select>
+    </div>
+    <div class="filter-group">
+      <label>Pontos FINA mínimo</label>
+      <input type="number" id="fPtsMin" placeholder="ex: 400" min="0">
+    </div>
+    <div class="filter-group">
+      <label>Tempo máximo (seg)</label>
+      <input type="number" id="fTempoMax" placeholder="ex: 60" step="0.01" min="0">
+    </div>
+    <div class="filter-group">
+      <label>Clube</label>
+      <select id="fClube"><option value="">Todos</option></select>
+    </div>
+    <div class="filter-group">
+      <label>Região</label>
+      <select id="fRegiao"><option value="">Todas</option></select>
+    </div>
+    <div class="filter-group">
+      <label>Nadador (nome contém)</label>
+      <input type="text" id="fNome" placeholder="ex: SILVA">
+    </div>
+    <div class="filter-group">
+      <label>Ordenar por</label>
+      <select id="fOrdem">
+        <option value="pts_desc">Pontos FINA (maior → menor)</option>
+        <option value="tempo_asc">Tempo (menor → maior)</option>
+        <option value="nome_asc">Nome (A → Z)</option>
+        <option value="ano_asc">Ano nasc. (mais novo → mais velho)</option>
+        <option value="ano_desc">Ano nasc. (mais velho → mais novo)</option>
+      </select>
+    </div>
+    <div class="filter-group">
+      <label>Top N (limite)</label>
+      <input type="number" id="fTopN" placeholder="ex: 50 (vazio = todos)" min="1">
+    </div>
+  </div>
+  <div class="actions">
+    <button class="primary" onclick="aplicarFiltros()">Aplicar Filtros</button>
+    <button class="secondary" onclick="limparFiltros()">Limpar Filtros</button>
+    <button class="success" onclick="exportarCSV()" id="btnExportCsv" disabled>📄 CSV</button>
+    <button class="success" onclick="exportarExcel()" id="btnExportXlsx" disabled>📊 Excel</button>
+    <button class="success" onclick="exportarWord()" id="btnExportDocx" disabled>📝 Word</button>
+  </div>
+</div>
+
+<div class="panel" id="resultsPanel" style="display:none;">
+  <h2>3. Ranking</h2>
+  <div class="stats" id="stats"></div>
+  <div class="table-wrap">
+    <table id="resultsTable">
+      <thead>
+        <tr>
+          <th class="rank">#</th>
+          <th>Nome</th>
+          <th>Sexo</th>
+          <th>Nasc.</th>
+          <th>Esc.</th>
+          <th>Prova</th>
+          <th>Tempo</th>
+          <th>Pts FINA</th>
+          <th>Clube</th>
+          <th>Região</th>
+          <th>Prova/Local</th>
+          <th>Data</th>
+        </tr>
+      </thead>
+      <tbody id="resultsBody"></tbody>
+    </table>
+  </div>
+</div>
+
+<!-- Swimmer profile modal -->
+<div class="modal-overlay" id="swimmerModal" onclick="if(event.target===this)fecharModal()">
+  <div class="modal">
+    <div class="modal-header">
+      <div>
+        <h3 id="modalName">—</h3>
+        <div class="sub" id="modalSub">—</div>
+      </div>
+      <button class="modal-close" onclick="fecharModal()" title="Fechar">×</button>
+    </div>
+    <div class="modal-body" id="modalBody"></div>
+    <div class="modal-actions">
+      <button class="secondary" onclick="fecharModal()">Fechar</button>
+      <button class="success" onclick="exportarPerfilExcel()">📊 Excel</button>
+      <button class="success" onclick="exportarPerfilPDF()">📕 PDF</button>
+    </div>
+  </div>
+</div>
+
+<script>
+let allData = []; // raw normalised records
+let filteredData = [];
+
+// === Helpers ===
+function timeToSeconds(t) {
+  if (t === null || t === undefined || t === "") return null;
+  if (typeof t === "number") return t;
+  const s = String(t).trim();
+  if (s.includes(":")) {
+    const parts = s.split(":");
+    const min = parseFloat(parts[0]);
+    const sec = parseFloat(parts[1]);
+    if (isNaN(min) || isNaN(sec)) return null;
+    return min * 60 + sec;
+  }
+  const v = parseFloat(s);
+  return isNaN(v) ? null : v;
+}
+
+function secondsToTime(sec) {
+  if (sec === null || sec === undefined || isNaN(sec)) return "";
+  if (sec < 60) return sec.toFixed(2);
+  const m = Math.floor(sec / 60);
+  const s = (sec - m * 60).toFixed(2).padStart(5, "0");
+  return `${m}:${s}`;
+}
+
+function parseDate(d) {
+  if (!d) return null;
+  if (d instanceof Date) return d;
+  if (typeof d === "number") {
+    // Excel serial
+    return new Date(Math.round((d - 25569) * 86400 * 1000));
+  }
+  const dt = new Date(d);
+  return isNaN(dt.getTime()) ? null : dt;
+}
+
+function getYear(d) {
+  const dt = parseDate(d);
+  return dt ? dt.getFullYear() : null;
+}
+
+// === Season configuration (persisted in localStorage) ===
+const DEFAULT_SEASON = {
+  name: "2026/2027",
+  InfB: 2014,
+  InfA: 2013,
+  JuvB: 2012,
+  JuvA: 2011,
+  JunStart: 2009,
+  JunEnd: 2010,
+  Sen: 2008
+};
+let SEASON = { ...DEFAULT_SEASON };
+
+function carregarEpoca() {
+  try {
+    const saved = localStorage.getItem("fpn_season_config");
+    if (saved) {
+      SEASON = { ...DEFAULT_SEASON, ...JSON.parse(saved) };
+    }
+  } catch (e) { /* ignore */ }
+  refletirEpocaNaUI();
+}
+
+function refletirEpocaNaUI() {
+  // Fill config inputs
+  document.getElementById("cfgSeasonName").value = SEASON.name || "";
+  document.getElementById("cfgInfB").value = SEASON.InfB || "";
+  document.getElementById("cfgInfA").value = SEASON.InfA || "";
+  document.getElementById("cfgJuvB").value = SEASON.JuvB || "";
+  document.getElementById("cfgJuvA").value = SEASON.JuvA || "";
+  document.getElementById("cfgJunStart").value = SEASON.JunStart || "";
+  document.getElementById("cfgJunEnd").value = SEASON.JunEnd || "";
+  document.getElementById("cfgSen").value = SEASON.Sen || "";
+
+  // Active season label
+  document.getElementById("seasonActive").innerHTML =
+    `<strong>Época ativa:</strong> ${SEASON.name} — ` +
+    `Inf B: ${SEASON.InfB}, Inf A: ${SEASON.InfA}, Juv B: ${SEASON.JuvB}, Juv A: ${SEASON.JuvA}, ` +
+    `Jun: ${SEASON.JunStart}-${SEASON.JunEnd}, Sen: ≤${SEASON.Sen}`;
+
+  // Update escalao filter options with current years
+  const sel = document.getElementById("fEscalao");
+  [...sel.options].forEach(opt => {
+    const base = opt.dataset.base;
+    if (!base) return;
+    let suffix = "";
+    if (opt.value === "InfB") suffix = ` (${SEASON.InfB})`;
+    else if (opt.value === "InfA") suffix = ` (${SEASON.InfA})`;
+    else if (opt.value === "JuvB") suffix = ` (${SEASON.JuvB})`;
+    else if (opt.value === "JuvA") suffix = ` (${SEASON.JuvA})`;
+    else if (opt.value === "Jun") suffix = ` (${SEASON.JunStart}-${SEASON.JunEnd})`;
+    else if (opt.value === "Sen") suffix = ` (≤${SEASON.Sen})`;
+    opt.textContent = base + suffix;
+  });
+}
+
+function guardarEpoca() {
+  const novo = {
+    name: document.getElementById("cfgSeasonName").value.trim() || "Personalizada",
+    InfB: parseInt(document.getElementById("cfgInfB").value),
+    InfA: parseInt(document.getElementById("cfgInfA").value),
+    JuvB: parseInt(document.getElementById("cfgJuvB").value),
+    JuvA: parseInt(document.getElementById("cfgJuvA").value),
+    JunStart: parseInt(document.getElementById("cfgJunStart").value),
+    JunEnd: parseInt(document.getElementById("cfgJunEnd").value),
+    Sen: parseInt(document.getElementById("cfgSen").value)
+  };
+  // Validate all years are numbers
+  for (const k of ["InfB","InfA","JuvB","JuvA","JunStart","JunEnd","Sen"]) {
+    if (isNaN(novo[k])) {
+      alert(`Preenche o ano para ${k}.`);
+      return;
+    }
+  }
+  if (novo.JunStart > novo.JunEnd) {
+    [novo.JunStart, novo.JunEnd] = [novo.JunEnd, novo.JunStart];
+  }
+  SEASON = novo;
+  localStorage.setItem("fpn_season_config", JSON.stringify(SEASON));
+  refletirEpocaNaUI();
+  // Recompute escalao for all loaded data
+  if (allData.length) {
+    allData.forEach(r => { r.escalao = escalaoFromYear(r.year); });
+    aplicarFiltros();
+  }
+  // Visual feedback
+  const det = document.getElementById("seasonDetails");
+  det.open = false;
+}
+
+function proximaEpoca() {
+  // Shift everything one year forward
+  const parts = (SEASON.name || "").split("/");
+  let newName = SEASON.name;
+  if (parts.length === 2 && !isNaN(parseInt(parts[0])) && !isNaN(parseInt(parts[1]))) {
+    newName = `${parseInt(parts[0]) + 1}/${parseInt(parts[1]) + 1}`;
+  }
+  const shifted = {
+    name: newName,
+    InfB: SEASON.InfB + 1,
+    InfA: SEASON.InfA + 1,
+    JuvB: SEASON.JuvB + 1,
+    JuvA: SEASON.JuvA + 1,
+    JunStart: SEASON.JunStart + 1,
+    JunEnd: SEASON.JunEnd + 1,
+    Sen: SEASON.Sen + 1
+  };
+  SEASON = shifted;
+  localStorage.setItem("fpn_season_config", JSON.stringify(SEASON));
+  refletirEpocaNaUI();
+  if (allData.length) {
+    allData.forEach(r => { r.escalao = escalaoFromYear(r.year); });
+    aplicarFiltros();
+  }
+}
+
+function reporEpocaDefault() {
+  SEASON = { ...DEFAULT_SEASON };
+  localStorage.setItem("fpn_season_config", JSON.stringify(SEASON));
+  refletirEpocaNaUI();
+  if (allData.length) {
+    allData.forEach(r => { r.escalao = escalaoFromYear(r.year); });
+    aplicarFiltros();
+  }
+}
+
+function escalaoFromYear(year) {
+  if (!year) return null;
+  if (year === SEASON.InfB) return "InfB";
+  if (year === SEASON.InfA) return "InfA";
+  if (year === SEASON.JuvB) return "JuvB";
+  if (year === SEASON.JuvA) return "JuvA";
+  if (year >= SEASON.JunStart && year <= SEASON.JunEnd) return "Jun";
+  if (year <= SEASON.Sen) return "Sen";
+  return null;
+}
+
+// Load season config on page load
+carregarEpoca();
+
+const escalaoLabels = {
+  InfB: "Inf B",
+  InfA: "Inf A",
+  JuvB: "Juv B",
+  JuvA: "Juv A",
+  Jun: "Jun",
+  Sen: "Sen"
+};
+
+const strokeLabels = {
+  Liv: "Livres",
+  Cos: "Costas",
+  Bru: "Bruços",
+  Mar: "Mariposa",
+  Est: "Estilos"
+};
+
+// === File loading ===
+document.getElementById("fileInput").addEventListener("change", handleFile);
+
+function handleFile(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = (evt) => {
+    try {
+      const data = new Uint8Array(evt.target.result);
+      const wb = XLSX.read(data, { type: "array", cellDates: true });
+      processWorkbook(wb, file.name);
+    } catch (err) {
+      alert("Erro a ler o ficheiro: " + err.message);
+    }
+  };
+  reader.readAsArrayBuffer(file);
+}
+
+function processWorkbook(wb, filename) {
+  allData = [];
+  const headerRow = ["COURSE","GENDER","DISTANCE","STROKE","FULLNAME","BIRTHDATE","NATION","CLUBCODE","SWIMTIME","SWIMTIME_N","PTS_FINA","PTS_RUDOLPH","PLACE","MEETDATE","MEETCITY","MEETNAME","CLUBNAME","REGION"];
+
+  for (const sheetName of wb.SheetNames) {
+    if (sheetName === "Top Results") continue; // skip aggregate sheet to avoid duplicates
+    const sheet = wb.Sheets[sheetName];
+    const rows = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: null, raw: false });
+    if (!rows || rows.length < 3) continue;
+    // header is row index 1 (second row); data starts row index 2
+    const headerIdx = rows[1];
+    // Map header positions
+    const idx = {};
+    headerIdx.forEach((h, i) => { if (h) idx[String(h).trim()] = i; });
+    // Fallback to standard order if header detection partial
+    headerRow.forEach((h, i) => { if (!(h in idx)) idx[h] = i; });
+
+    for (let r = 2; r < rows.length; r++) {
+      const row = rows[r];
+      if (!row || row.every(c => c === null || c === "")) continue;
+      const fullname = row[idx.FULLNAME];
+      if (!fullname) continue;
+      const rec = {
+        sheet: sheetName,
+        course: row[idx.COURSE],
+        gender: row[idx.GENDER],
+        distance: row[idx.DISTANCE],
+        stroke: row[idx.STROKE],
+        fullname: fullname,
+        birthdate: row[idx.BIRTHDATE],
+        nation: row[idx.NATION],
+        clubcode: row[idx.CLUBCODE],
+        swimtime: row[idx.SWIMTIME],
+        swimtime_n: parseFloat(row[idx.SWIMTIME_N]) || timeToSeconds(row[idx.SWIMTIME]),
+        pts_fina: parseInt(row[idx.PTS_FINA]) || 0,
+        place: row[idx.PLACE],
+        meetdate: row[idx.MEETDATE],
+        meetcity: row[idx.MEETCITY],
+        meetname: row[idx.MEETNAME],
+        clubname: row[idx.CLUBNAME],
+        region: row[idx.REGION]
+      };
+      rec.year = getYear(rec.birthdate);
+      rec.escalao = escalaoFromYear(rec.year);
+      rec.prova = `${rec.distance}m ${rec.stroke}`;
+      allData.push(rec);
+    }
+  }
+
+  // Update UI
+  const ub = document.getElementById("uploadBox");
+  ub.classList.add("has-file");
+  document.getElementById("uploadText").innerHTML = `<span class="filename">✓ ${filename}</span><br><small>${allData.length} registos carregados</small>`;
+  document.getElementById("filtersPanel").style.display = "block";
+  populateFilters();
+  aplicarFiltros();
+}
+
+function populateFilters() {
+  // Provas
+  const provas = [...new Set(allData.map(r => r.prova))].sort();
+  const fp = document.getElementById("fProva");
+  fp.innerHTML = '<option value="">Todas</option>';
+  provas.forEach(p => fp.innerHTML += `<option value="${p}">${p}</option>`);
+
+  // Anos
+  const anos = [...new Set(allData.map(r => r.year).filter(y => y))].sort();
+  const fa = document.getElementById("fAno");
+  fa.innerHTML = '<option value="">Todos</option>';
+  anos.forEach(a => fa.innerHTML += `<option value="${a}">${a}</option>`);
+
+  // Clubes
+  const clubes = [...new Set(allData.map(r => r.clubname).filter(c => c))].sort();
+  const fc = document.getElementById("fClube");
+  fc.innerHTML = '<option value="">Todos</option>';
+  clubes.forEach(c => fc.innerHTML += `<option value="${c}">${c}</option>`);
+
+  // Regiões
+  const regioes = [...new Set(allData.map(r => r.region).filter(r => r))].sort();
+  const fr = document.getElementById("fRegiao");
+  fr.innerHTML = '<option value="">Todas</option>';
+  regioes.forEach(r => fr.innerHTML += `<option value="${r}">${r}</option>`);
+}
+
+function aplicarFiltros() {
+  const fProva = document.getElementById("fProva").value;
+  const fSexo = document.getElementById("fSexo").value;
+  const fEscalao = document.getElementById("fEscalao").value;
+  const fAno = document.getElementById("fAno").value;
+  const fPtsMin = parseFloat(document.getElementById("fPtsMin").value);
+  const fTempoMax = parseFloat(document.getElementById("fTempoMax").value);
+  const fClube = document.getElementById("fClube").value;
+  const fRegiao = document.getElementById("fRegiao").value;
+  const fNome = document.getElementById("fNome").value.trim().toUpperCase();
+  const fOrdem = document.getElementById("fOrdem").value;
+  const fTopN = parseInt(document.getElementById("fTopN").value);
+
+  filteredData = allData.filter(r => {
+    if (fProva && r.prova !== fProva) return false;
+    if (fSexo && r.gender !== fSexo) return false;
+    if (fEscalao) {
+      if (fEscalao === "Inf") { if (r.escalao !== "InfA" && r.escalao !== "InfB") return false; }
+      else if (fEscalao === "Juv") { if (r.escalao !== "JuvA" && r.escalao !== "JuvB") return false; }
+      else if (r.escalao !== fEscalao) return false;
+    }
+    if (fAno && String(r.year) !== fAno) return false;
+    if (!isNaN(fPtsMin) && (r.pts_fina || 0) < fPtsMin) return false;
+    if (!isNaN(fTempoMax) && (r.swimtime_n === null || r.swimtime_n > fTempoMax)) return false;
+    if (fClube && r.clubname !== fClube) return false;
+    if (fRegiao && r.region !== fRegiao) return false;
+    if (fNome && !String(r.fullname).toUpperCase().includes(fNome)) return false;
+    return true;
+  });
+
+  // Sort
+  filteredData.sort((a, b) => {
+    switch (fOrdem) {
+      case "tempo_asc": return (a.swimtime_n || Infinity) - (b.swimtime_n || Infinity);
+      case "nome_asc": return String(a.fullname).localeCompare(String(b.fullname));
+      case "ano_asc": return (b.year || 0) - (a.year || 0);
+      case "ano_desc": return (a.year || 0) - (b.year || 0);
+      case "pts_desc":
+      default: return (b.pts_fina || 0) - (a.pts_fina || 0);
+    }
+  });
+
+  if (!isNaN(fTopN) && fTopN > 0) {
+    filteredData = filteredData.slice(0, fTopN);
+  }
+
+  render();
+}
+
+function setGenero(value) {
+  document.getElementById("fSexo").value = value;
+  document.querySelectorAll("#genderToggle button").forEach(btn => {
+    btn.classList.toggle("active", btn.dataset.gender === value);
+  });
+  aplicarFiltros();
+}
+
+function limparFiltros() {
+  document.querySelectorAll("#filtersPanel select").forEach(s => s.value = "");
+  document.querySelectorAll("#filtersPanel input[type='text'], #filtersPanel input[type='number']").forEach(i => i.value = "");
+  document.getElementById("fSexo").value = "";
+  document.querySelectorAll("#genderToggle button").forEach(btn => {
+    btn.classList.toggle("active", btn.dataset.gender === "");
+  });
+  document.getElementById("fOrdem").value = "pts_desc";
+  aplicarFiltros();
+}
+
+function render() {
+  document.getElementById("resultsPanel").style.display = "block";
+  const hasData = filteredData.length > 0;
+  document.getElementById("btnExportCsv").disabled = !hasData;
+  document.getElementById("btnExportXlsx").disabled = !hasData;
+  document.getElementById("btnExportDocx").disabled = !hasData;
+
+  // Stats
+  const ptsList = filteredData.map(r => r.pts_fina || 0);
+  const avgPts = ptsList.length ? Math.round(ptsList.reduce((a,b)=>a+b,0) / ptsList.length) : 0;
+  const maxPts = ptsList.length ? Math.max(...ptsList) : 0;
+  const nClubes = new Set(filteredData.map(r => r.clubname).filter(c=>c)).size;
+  const nNadadores = new Set(filteredData.map(r => r.fullname)).size;
+
+  document.getElementById("stats").innerHTML = `
+    <div class="stat"><div class="label">Resultados</div><div class="value">${filteredData.length}</div></div>
+    <div class="stat"><div class="label">Nadadores únicos</div><div class="value">${nNadadores}</div></div>
+    <div class="stat"><div class="label">Clubes</div><div class="value">${nClubes}</div></div>
+    <div class="stat"><div class="label">Pts FINA méd.</div><div class="value">${avgPts}</div></div>
+    <div class="stat"><div class="label">Pts FINA máx.</div><div class="value">${maxPts}</div></div>
+  `;
+
+  // Table
+  const tbody = document.getElementById("resultsBody");
+  if (filteredData.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="12" class="empty">Nenhum resultado corresponde aos filtros</td></tr>';
+    return;
+  }
+
+  let html = "";
+  filteredData.forEach((r, i) => {
+    const rank = i + 1;
+    let rankCls = "rank";
+    if (rank === 1) rankCls += " top1";
+    else if (rank === 2) rankCls += " top2";
+    else if (rank === 3) rankCls += " top3";
+
+    const escLabel = escalaoLabels[r.escalao] || "—";
+    const genderCls = r.gender === "F" ? "gender-f" : "gender-m";
+    const dt = parseDate(r.meetdate);
+    const dtStr = dt ? dt.toLocaleDateString("pt-PT") : "";
+    const safeName = String(r.fullname || "").replace(/'/g, "\\'");
+
+    html += `<tr>
+      <td class="${rankCls}">${rank}</td>
+      <td><span class="swimmer-link" onclick="abrirPerfil('${safeName}')" title="Ver perfil completo">${r.fullname || ""}</span></td>
+      <td class="${genderCls}">${r.gender || ""}</td>
+      <td>${r.year || ""}</td>
+      <td><span class="badge">${escLabel}</span></td>
+      <td>${r.prova}</td>
+      <td class="time">${r.swimtime || secondsToTime(r.swimtime_n)}</td>
+      <td class="pts">${r.pts_fina || 0}</td>
+      <td>${r.clubname || ""}</td>
+      <td>${r.region || ""}</td>
+      <td>${r.meetname || ""}<br><small style="color:#8092a8;">${r.meetcity || ""}</small></td>
+      <td>${dtStr}</td>
+    </tr>`;
+  });
+  tbody.innerHTML = html;
+}
+
+function exportarCSV() {
+  if (filteredData.length === 0) return;
+  const headers = ["Pos","Nome","Sexo","Ano Nasc.","Escalão","Prova","Tempo","Pts FINA","Clube","Região","Prova/Local","Data"];
+  const rows = filteredData.map((r, i) => {
+    const dt = parseDate(r.meetdate);
+    return [
+      i + 1,
+      r.fullname || "",
+      r.gender || "",
+      r.year || "",
+      escalaoLabels[r.escalao] || "",
+      r.prova,
+      r.swimtime || secondsToTime(r.swimtime_n),
+      r.pts_fina || 0,
+      r.clubname || "",
+      r.region || "",
+      `${r.meetname || ""} - ${r.meetcity || ""}`,
+      dt ? dt.toLocaleDateString("pt-PT") : ""
+    ];
+  });
+  const csv = [headers, ...rows].map(row =>
+    row.map(c => {
+      const s = String(c).replace(/"/g, '""');
+      return /[,;"\n]/.test(s) ? `"${s}"` : s;
+    }).join(";")
+  ).join("\n");
+  downloadBlob(new Blob(["\ufeff" + csv], { type: "text/csv;charset=utf-8;" }), `ranking_${todayISO()}.csv`);
+}
+
+function exportarExcel() {
+  if (filteredData.length === 0) return;
+  const headers = ["Pos","Nome","Sexo","Ano Nasc.","Escalão","Prova","Tempo","Pts FINA","Clube","Região","Competição","Local","Data"];
+  const aoa = [headers];
+  filteredData.forEach((r, i) => {
+    const dt = parseDate(r.meetdate);
+    aoa.push([
+      i + 1,
+      r.fullname || "",
+      r.gender || "",
+      r.year || "",
+      escalaoLabels[r.escalao] || "",
+      r.prova,
+      r.swimtime || secondsToTime(r.swimtime_n),
+      r.pts_fina || 0,
+      r.clubname || "",
+      r.region || "",
+      r.meetname || "",
+      r.meetcity || "",
+      dt ? dt.toLocaleDateString("pt-PT") : ""
+    ]);
+  });
+  const ws = XLSX.utils.aoa_to_sheet(aoa);
+  ws["!cols"] = [
+    {wch:5},{wch:30},{wch:5},{wch:8},{wch:8},{wch:12},{wch:10},
+    {wch:9},{wch:30},{wch:8},{wch:35},{wch:18},{wch:11}
+  ];
+  // Bold header row via cell styling (note: XLSX core doesn't write styles; readers usually still bold header from format hints—keep simple)
+  const wb = XLSX.utils.book_new();
+  const sheetName = `Ranking_${todayISO()}`.slice(0,31);
+  XLSX.utils.book_append_sheet(wb, ws, sheetName);
+  XLSX.writeFile(wb, `ranking_${todayISO()}.xlsx`);
+}
+
+async function exportarWord() {
+  if (filteredData.length === 0) return;
+  const D = window.docx;
+  if (!D) { alert("Biblioteca Word não disponível."); return; }
+
+  const headers = ["#","Nome","Sexo","Nasc.","Esc.","Prova","Tempo","Pts FINA","Clube","Região","Competição","Data"];
+  const headerCells = headers.map(h => new D.TableCell({
+    width: { size: 100/headers.length, type: D.WidthType.PERCENTAGE },
+    shading: { fill: "003A70" },
+    children: [new D.Paragraph({
+      children: [new D.TextRun({ text: h, bold: true, color: "FFFFFF", size: 16 })]
+    })]
+  }));
+  const headerRow = new D.TableRow({ children: headerCells, tableHeader: true });
+
+  const dataRows = filteredData.map((r, i) => {
+    const dt = parseDate(r.meetdate);
+    const vals = [
+      String(i + 1),
+      r.fullname || "",
+      r.gender || "",
+      String(r.year || ""),
+      escalaoLabels[r.escalao] || "",
+      r.prova,
+      r.swimtime || secondsToTime(r.swimtime_n),
+      String(r.pts_fina || 0),
+      r.clubname || "",
+      r.region || "",
+      r.meetname || "",
+      dt ? dt.toLocaleDateString("pt-PT") : ""
+    ];
+    return new D.TableRow({
+      children: vals.map(v => new D.TableCell({
+        children: [new D.Paragraph({
+          children: [new D.TextRun({ text: String(v), size: 14 })]
+        })]
+      }))
+    });
+  });
+
+  const table = new D.Table({
+    rows: [headerRow, ...dataRows],
+    width: { size: 100, type: D.WidthType.PERCENTAGE }
+  });
+
+  const filtroResumo = resumoFiltros();
+  const doc = new D.Document({
+    sections: [{
+      properties: { page: { size: { orientation: D.PageOrientation.LANDSCAPE } } },
+      children: [
+        new D.Paragraph({
+          children: [new D.TextRun({ text: "Ranking de Natação", bold: true, size: 32, color: "003A70" })]
+        }),
+        new D.Paragraph({
+          children: [new D.TextRun({ text: `Época ${SEASON.name} — Gerado em ${new Date().toLocaleString("pt-PT")}`, size: 18, color: "4A5B71" })],
+          spacing: { after: 200 }
+        }),
+        new D.Paragraph({
+          children: [new D.TextRun({ text: "Filtros aplicados: ", bold: true, size: 16 }),
+                     new D.TextRun({ text: filtroResumo, size: 16 })],
+          spacing: { after: 200 }
+        }),
+        new D.Paragraph({
+          children: [new D.TextRun({ text: `Total de resultados: ${filteredData.length}`, italics: true, size: 16 })],
+          spacing: { after: 300 }
+        }),
+        table
+      ]
+    }]
+  });
+
+  const blob = await D.Packer.toBlob(doc);
+  downloadBlob(blob, `ranking_${todayISO()}.docx`);
+}
+
+function resumoFiltros() {
+  const partes = [];
+  const get = id => document.getElementById(id).value;
+  const map = {
+    fProva: "Prova", fSexo: "Sexo", fEscalao: "Escalão", fAno: "Ano",
+    fPtsMin: "Pts FINA ≥", fTempoMax: "Tempo ≤", fClube: "Clube",
+    fRegiao: "Região", fNome: "Nome contém"
+  };
+  Object.entries(map).forEach(([id, label]) => {
+    const v = get(id);
+    if (v) partes.push(`${label}: ${v}`);
+  });
+  return partes.length ? partes.join(" • ") : "Nenhum (todos os resultados)";
+}
+
+function todayISO() {
+  return new Date().toISOString().slice(0,10);
+}
+
+function downloadBlob(blob, filename) {
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+// === Swimmer profile ===
+let currentSwimmer = null;
+let currentSwimmerBests = []; // array of best record per prova
+
+function abrirPerfil(name) {
+  const records = allData.filter(r => r.fullname === name);
+  if (records.length === 0) return;
+
+  // Group by prova, pick best by PTS_FINA (or by time if no pts)
+  const bestByProva = {};
+  records.forEach(r => {
+    const key = r.prova;
+    const cur = bestByProva[key];
+    const better = !cur ||
+      (r.pts_fina || 0) > (cur.pts_fina || 0) ||
+      ((r.pts_fina || 0) === (cur.pts_fina || 0) && (r.swimtime_n || Infinity) < (cur.swimtime_n || Infinity));
+    if (better) bestByProva[key] = r;
+  });
+
+  const bests = Object.values(bestByProva).sort((a, b) => (b.pts_fina || 0) - (a.pts_fina || 0));
+  currentSwimmer = name;
+  currentSwimmerBests = bests;
+
+  // Header info (use first record for static fields)
+  const r0 = records[0];
+  document.getElementById("modalName").textContent = name;
+  document.getElementById("modalSub").textContent =
+    `${r0.gender === "F" ? "Feminino" : "Masculino"} • Nasc. ${r0.year || "—"} • ${r0.clubname || "—"}`;
+
+  // Compute totals
+  const totalRecs = records.length;
+  const maxPts = Math.max(...records.map(r => r.pts_fina || 0));
+  const totalProvas = bests.length;
+  const escLabel = escalaoLabels[r0.escalao] || "—";
+
+  let html = `
+    <div class="info-grid">
+      <div class="info-cell"><div class="lbl">Escalão</div><div class="val">${escLabel}</div></div>
+      <div class="info-cell"><div class="lbl">Nação</div><div class="val">${r0.nation || "—"}</div></div>
+      <div class="info-cell"><div class="lbl">Região</div><div class="val">${r0.region || "—"}</div></div>
+      <div class="info-cell"><div class="lbl">Provas distintas</div><div class="val">${totalProvas}</div></div>
+      <div class="info-cell"><div class="lbl">Total registos</div><div class="val">${totalRecs}</div></div>
+      <div class="info-cell"><div class="lbl">Pts FINA máx.</div><div class="val">${maxPts}</div></div>
+    </div>
+    <h3 style="font-size:14px; color:#003a70; margin-bottom:8px; padding-bottom:6px; border-bottom:2px solid #e8eef5;">Melhor marca por prova</h3>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Prova</th>
+            <th>Melhor Tempo</th>
+            <th>Pts FINA</th>
+            <th>Competição</th>
+            <th>Local</th>
+            <th>Data</th>
+          </tr>
+        </thead>
+        <tbody>
+  `;
+  bests.forEach(b => {
+    const dt = parseDate(b.meetdate);
+    html += `<tr>
+      <td><strong>${b.prova}</strong></td>
+      <td class="time">${b.swimtime || secondsToTime(b.swimtime_n)}</td>
+      <td class="pts">${b.pts_fina || 0}</td>
+      <td>${b.meetname || ""}</td>
+      <td>${b.meetcity || ""}</td>
+      <td>${dt ? dt.toLocaleDateString("pt-PT") : ""}</td>
+    </tr>`;
+  });
+  html += "</tbody></table></div>";
+
+  document.getElementById("modalBody").innerHTML = html;
+  document.getElementById("swimmerModal").classList.add("active");
+}
+
+function fecharModal() {
+  document.getElementById("swimmerModal").classList.remove("active");
+  currentSwimmer = null;
+  currentSwimmerBests = [];
+}
+
+document.addEventListener("keydown", e => {
+  if (e.key === "Escape") fecharModal();
+});
+
+function exportarPerfilExcel() {
+  if (!currentSwimmer || currentSwimmerBests.length === 0) return;
+  const r0 = currentSwimmerBests[0];
+  // Info sheet
+  const info = [
+    ["Nadador", currentSwimmer],
+    ["Sexo", r0.gender === "F" ? "Feminino" : "Masculino"],
+    ["Ano de nascimento", r0.year || ""],
+    ["Escalão", escalaoLabels[r0.escalao] || ""],
+    ["Nação", r0.nation || ""],
+    ["Clube", r0.clubname || ""],
+    ["Região", r0.region || ""],
+    ["Provas distintas", currentSwimmerBests.length],
+    ["Gerado em", new Date().toLocaleString("pt-PT")]
+  ];
+  const wsInfo = XLSX.utils.aoa_to_sheet(info);
+  wsInfo["!cols"] = [{wch:22},{wch:35}];
+
+  // Best per prova
+  const headers = ["Prova","Melhor Tempo","Pts FINA","Competição","Local","Data"];
+  const aoa = [headers];
+  currentSwimmerBests.forEach(b => {
+    const dt = parseDate(b.meetdate);
+    aoa.push([
+      b.prova,
+      b.swimtime || secondsToTime(b.swimtime_n),
+      b.pts_fina || 0,
+      b.meetname || "",
+      b.meetcity || "",
+      dt ? dt.toLocaleDateString("pt-PT") : ""
+    ]);
+  });
+  const wsBests = XLSX.utils.aoa_to_sheet(aoa);
+  wsBests["!cols"] = [{wch:14},{wch:12},{wch:10},{wch:40},{wch:20},{wch:12}];
+
+  // All records sheet
+  const allRecs = allData.filter(r => r.fullname === currentSwimmer)
+    .sort((a, b) => (b.pts_fina || 0) - (a.pts_fina || 0));
+  const allHeaders = ["Prova","Tempo","Pts FINA","Lugar","Competição","Local","Data"];
+  const aoaAll = [allHeaders];
+  allRecs.forEach(r => {
+    const dt = parseDate(r.meetdate);
+    aoaAll.push([
+      r.prova,
+      r.swimtime || secondsToTime(r.swimtime_n),
+      r.pts_fina || 0,
+      r.place || "",
+      r.meetname || "",
+      r.meetcity || "",
+      dt ? dt.toLocaleDateString("pt-PT") : ""
+    ]);
+  });
+  const wsAll = XLSX.utils.aoa_to_sheet(aoaAll);
+  wsAll["!cols"] = [{wch:14},{wch:12},{wch:10},{wch:7},{wch:40},{wch:20},{wch:12}];
+
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, wsInfo, "Info");
+  XLSX.utils.book_append_sheet(wb, wsBests, "Melhores Marcas");
+  XLSX.utils.book_append_sheet(wb, wsAll, "Todos os Registos");
+
+  const safe = currentSwimmer.replace(/[^a-zA-Z0-9_-]/g, "_").slice(0, 50);
+  XLSX.writeFile(wb, `perfil_${safe}.xlsx`);
+}
+
+function exportarPerfilPDF() {
+  if (!currentSwimmer || currentSwimmerBests.length === 0) return;
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
+
+  const r0 = currentSwimmerBests[0];
+  const pageW = doc.internal.pageSize.getWidth();
+
+  // Header background
+  doc.setFillColor(0, 58, 112);
+  doc.rect(0, 0, pageW, 28, "F");
+  doc.setTextColor(255, 255, 255);
+  doc.setFontSize(18);
+  doc.setFont("helvetica", "bold");
+  doc.text(currentSwimmer, 14, 14);
+  doc.setFontSize(10);
+  doc.setFont("helvetica", "normal");
+  doc.text(`${r0.gender === "F" ? "Feminino" : "Masculino"} • Nasc. ${r0.year || "—"} • ${r0.clubname || "—"}`, 14, 21);
+
+  doc.setTextColor(0, 0, 0);
+  let y = 36;
+
+  // Info block
+  doc.setFontSize(10);
+  const info = [
+    ["Escalão:", escalaoLabels[r0.escalao] || "—"],
+    ["Nação:", r0.nation || "—"],
+    ["Região:", r0.region || "—"],
+    ["Provas distintas:", String(currentSwimmerBests.length)],
+    ["Pts FINA máx.:", String(Math.max(...currentSwimmerBests.map(b => b.pts_fina || 0)))],
+    ["Época:", SEASON.name],
+    ["Gerado em:", new Date().toLocaleString("pt-PT")]
+  ];
+  info.forEach(([k, v]) => {
+    doc.setFont("helvetica", "bold");
+    doc.text(k, 14, y);
+    doc.setFont("helvetica", "normal");
+    doc.text(v, 55, y);
+    y += 5;
+  });
+
+  y += 4;
+
+  // Best per prova table
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(12);
+  doc.setTextColor(0, 58, 112);
+  doc.text("Melhor marca por prova", 14, y);
+  y += 2;
+  doc.setTextColor(0, 0, 0);
+
+  const bestsBody = currentSwimmerBests.map(b => {
+    const dt = parseDate(b.meetdate);
+    return [
+      b.prova,
+      b.swimtime || secondsToTime(b.swimtime_n),
+      String(b.pts_fina || 0),
+      b.meetname || "",
+      dt ? dt.toLocaleDateString("pt-PT") : ""
+    ];
+  });
+  doc.autoTable({
+    startY: y + 2,
+    head: [["Prova","Tempo","Pts FINA","Competição","Data"]],
+    body: bestsBody,
+    headStyles: { fillColor: [0, 58, 112], textColor: 255, fontSize: 9 },
+    bodyStyles: { fontSize: 8 },
+    alternateRowStyles: { fillColor: [244, 246, 249] },
+    columnStyles: { 0: { fontStyle: "bold" }, 2: { halign: "right", textColor: [0,102,179], fontStyle: "bold" } },
+    margin: { left: 14, right: 14 }
+  });
+
+  // All records table
+  const allRecs = allData.filter(r => r.fullname === currentSwimmer)
+    .sort((a, b) => (b.pts_fina || 0) - (a.pts_fina || 0));
+
+  const allBody = allRecs.map(r => {
+    const dt = parseDate(r.meetdate);
+    return [
+      r.prova,
+      r.swimtime || secondsToTime(r.swimtime_n),
+      String(r.pts_fina || 0),
+      r.meetname || "",
+      dt ? dt.toLocaleDateString("pt-PT") : ""
+    ];
+  });
+
+  if (allBody.length > 0) {
+    doc.addPage();
+    doc.setFillColor(0, 58, 112);
+    doc.rect(0, 0, pageW, 20, "F");
+    doc.setTextColor(255, 255, 255);
+    doc.setFontSize(14);
+    doc.setFont("helvetica", "bold");
+    doc.text(`${currentSwimmer} - Histórico completo (${allBody.length} registos)`, 14, 13);
+    doc.setTextColor(0, 0, 0);
+
+    doc.autoTable({
+      startY: 26,
+      head: [["Prova","Tempo","Pts FINA","Competição","Data"]],
+      body: allBody,
+      headStyles: { fillColor: [0, 58, 112], textColor: 255, fontSize: 9 },
+      bodyStyles: { fontSize: 8 },
+      alternateRowStyles: { fillColor: [244, 246, 249] },
+      columnStyles: { 0: { fontStyle: "bold" }, 2: { halign: "right" } },
+      margin: { left: 14, right: 14 }
+    });
+  }
+
+  const safe = currentSwimmer.replace(/[^a-zA-Z0-9_-]/g, "_").slice(0, 50);
+  doc.save(`perfil_${safe}.pdf`);
+}
+
+// Drag & drop
+const ub = document.getElementById("uploadBox");
+["dragenter", "dragover"].forEach(ev => {
+  ub.addEventListener(ev, e => { e.preventDefault(); e.stopPropagation(); ub.style.borderColor = "#0066b3"; });
+});
+["dragleave", "drop"].forEach(ev => {
+  ub.addEventListener(ev, e => { e.preventDefault(); e.stopPropagation(); });
+});
+ub.addEventListener("drop", e => {
+  const file = e.dataTransfer.files[0];
+  if (file) {
+    document.getElementById("fileInput").files = e.dataTransfer.files;
+    handleFile({ target: { files: [file] } });
+  }
+});
+</script>
+</body>
+</html>
