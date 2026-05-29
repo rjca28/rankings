@@ -391,6 +391,39 @@
     cursor: not-allowed;
   }
   .tab-btn:disabled:hover { background: transparent; }
+
+  .drive-status {
+    padding: 10px 14px;
+    border-radius: 6px;
+    margin-bottom: 12px;
+    font-size: 13px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .drive-status.loading {
+    background: #fff8e1;
+    border-left: 3px solid #f0a020;
+    color: #6b4400;
+  }
+  .drive-status.success {
+    background: #e8f5ec;
+    border-left: 3px solid #1e9e4a;
+    color: #0e5a26;
+  }
+  .drive-status.error {
+    background: #fdecea;
+    border-left: 3px solid #d32f2f;
+    color: #8a1a1a;
+  }
+  .drive-status .spinner {
+    width: 16px; height: 16px;
+    border: 2px solid #f0a020;
+    border-top-color: transparent;
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
 </style>
 </head>
 <body>
@@ -416,11 +449,17 @@
 
 <div class="panel">
   <h2>1. Carregar Ficheiro Excel</h2>
+  <div id="driveStatus" class="drive-status" style="display:none;"></div>
   <label class="upload-box" id="uploadBox">
     <input type="file" id="fileInput" accept=".xlsx,.xls">
     <div class="icon">📊</div>
     <div class="text" id="uploadText">Clique para escolher o ficheiro (ou arraste aqui)</div>
   </label>
+  <div class="actions" style="margin-top:10px;">
+    <button class="secondary" onclick="carregarDoDrive()" id="btnReloadDrive" title="Recarregar do Google Drive">
+      🔄 Recarregar do Google Drive
+    </button>
+  </div>
   <div class="season-active" id="seasonActive"></div>
 </div>
 
@@ -603,6 +642,26 @@
 </div>
 
 <script>
+// ============================================================
+//  GOOGLE DRIVE AUTO-LOAD
+// ============================================================
+// Para carregar automaticamente um ficheiro do Google Drive ao
+// abrir a página, segue estes passos:
+//
+//   1. No Google Drive, clica com o botão direito no .xlsx
+//   2. Partilhar → Acesso geral → "Qualquer pessoa com o link"
+//      (Visualizador)
+//   3. Copia o link, terá este formato:
+//        https://drive.google.com/file/d/AQUI_ESTA_O_ID/view?usp=sharing
+//   4. Cola o ID (a parte entre /d/ e /view) na constante abaixo
+//
+//   ⚠️  Importante: qualquer pessoa com acesso a esta página
+//   poderá descarregar este ficheiro.
+//   Deixa GOOGLE_DRIVE_FILE_ID = "" para desativar o auto-load.
+// ============================================================
+const GOOGLE_DRIVE_FILE_ID = "COLA_AQUI_O_ID_DO_FICHEIRO";
+const GOOGLE_DRIVE_FILE_NAME = "ficheiro_remoto.xlsx"; // nome de apresentação
+
 let allData = []; // raw normalised records
 let filteredData = [];
 let originalRows = []; // raw rows from the uploaded Excel (for re-export)
@@ -852,6 +911,73 @@ function handleFile(e) {
     }
   };
   reader.readAsArrayBuffer(file);
+}
+
+// === Google Drive auto-load ===
+function mostrarDriveStatus(tipo, mensagem) {
+  const el = document.getElementById("driveStatus");
+  if (!el) return;
+  el.className = "drive-status " + tipo;
+  el.style.display = "flex";
+  let icon = "";
+  if (tipo === "loading") icon = '<span class="spinner"></span>';
+  else if (tipo === "success") icon = '<span>✓</span>';
+  else if (tipo === "error") icon = '<span>⚠️</span>';
+  el.innerHTML = icon + '<span>' + mensagem + '</span>';
+}
+
+function esconderDriveStatus() {
+  const el = document.getElementById("driveStatus");
+  if (el) el.style.display = "none";
+}
+
+async function carregarDoDrive() {
+  if (!GOOGLE_DRIVE_FILE_ID || GOOGLE_DRIVE_FILE_ID === "COLA_AQUI_O_ID_DO_FICHEIRO") {
+    mostrarDriveStatus("error",
+      "ID do Google Drive não configurado. Edita o ficheiro HTML e define GOOGLE_DRIVE_FILE_ID. Entretanto, podes carregar manualmente abaixo.");
+    return;
+  }
+
+  mostrarDriveStatus("loading", "A descarregar ficheiro do Google Drive...");
+
+  // URLs alternativas a tentar (algumas funcionam melhor por causa de CORS / scan vírus)
+  const urls = [
+    `https://drive.usercontent.google.com/download?id=${GOOGLE_DRIVE_FILE_ID}&export=download`,
+    `https://drive.google.com/uc?export=download&id=${GOOGLE_DRIVE_FILE_ID}`,
+    `https://docs.google.com/uc?export=download&id=${GOOGLE_DRIVE_FILE_ID}`
+  ];
+
+  let lastError = null;
+  for (const url of urls) {
+    try {
+      const resp = await fetch(url, { mode: "cors" });
+      if (!resp.ok) {
+        lastError = `HTTP ${resp.status}`;
+        continue;
+      }
+      const buf = await resp.arrayBuffer();
+      if (buf.byteLength < 100) {
+        lastError = "Resposta vazia ou demasiado pequena";
+        continue;
+      }
+      // Verifica se é XLSX (zip - assinatura PK)
+      const view = new Uint8Array(buf.slice(0, 4));
+      if (view[0] !== 0x50 || view[1] !== 0x4B) {
+        // não é um zip/xlsx — provavelmente página HTML do Drive
+        lastError = "O Drive devolveu uma página em vez do ficheiro. Verifica que o ficheiro está partilhado como 'Qualquer pessoa com o link'.";
+        continue;
+      }
+      const wb = XLSX.read(new Uint8Array(buf), { type: "array", cellDates: true });
+      processWorkbook(wb, GOOGLE_DRIVE_FILE_NAME);
+      mostrarDriveStatus("success", `Ficheiro carregado do Google Drive: ${GOOGLE_DRIVE_FILE_NAME}`);
+      return;
+    } catch (err) {
+      lastError = err.message;
+    }
+  }
+
+  mostrarDriveStatus("error",
+    `Não foi possível carregar do Google Drive (${lastError}). Podes carregar manualmente abaixo.`);
 }
 
 function processWorkbook(wb, filename) {
@@ -1587,6 +1713,16 @@ ub.addEventListener("drop", e => {
     handleFile({ target: { files: [file] } });
   }
 });
+
+// === Auto-load from Google Drive on page open ===
+if (GOOGLE_DRIVE_FILE_ID && GOOGLE_DRIVE_FILE_ID !== "1Tqzb7DbRPvkEbaIuwRHpkzaCiqadfv2a") {
+  // Carrega automaticamente quando a página abre
+  carregarDoDrive();
+} else {
+  // ID não configurado — esconde o botão de reload
+  const btn = document.getElementById("btnReloadDrive");
+  if (btn) btn.style.display = "none";
+}
 </script>
 </body>
 </html>
