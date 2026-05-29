@@ -941,43 +941,52 @@ async function carregarDoDrive() {
   mostrarDriveStatus("loading", "A descarregar ficheiro do Google Drive...");
 
   // URLs alternativas a tentar (algumas funcionam melhor por causa de CORS / scan vírus)
+  // A 1ª é a mais fiável para ficheiros .xlsx em docs.google.com/spreadsheets/d/
   const urls = [
+    `https://docs.google.com/spreadsheets/d/${GOOGLE_DRIVE_FILE_ID}/export?format=xlsx`,
     `https://drive.usercontent.google.com/download?id=${GOOGLE_DRIVE_FILE_ID}&export=download`,
-    `https://drive.google.com/uc?export=download&id=${GOOGLE_DRIVE_FILE_ID}`,
-    `https://docs.google.com/uc?export=download&id=${GOOGLE_DRIVE_FILE_ID}`
+    `https://drive.google.com/uc?export=download&id=${GOOGLE_DRIVE_FILE_ID}`
   ];
 
   let lastError = null;
+  let lastStatus = null;
   for (const url of urls) {
     try {
-      const resp = await fetch(url, { mode: "cors" });
+      const resp = await fetch(url, { mode: "cors", redirect: "follow" });
+      lastStatus = resp.status;
       if (!resp.ok) {
         lastError = `HTTP ${resp.status}`;
         continue;
       }
       const buf = await resp.arrayBuffer();
       if (buf.byteLength < 100) {
-        lastError = "Resposta vazia ou demasiado pequena";
+        lastError = "Resposta vazia (ficheiro pode estar privado)";
         continue;
       }
       // Verifica se é XLSX (zip - assinatura PK)
       const view = new Uint8Array(buf.slice(0, 4));
       if (view[0] !== 0x50 || view[1] !== 0x4B) {
-        // não é um zip/xlsx — provavelmente página HTML do Drive
-        lastError = "O Drive devolveu uma página em vez do ficheiro. Verifica que o ficheiro está partilhado como 'Qualquer pessoa com o link'.";
+        lastError = "Drive devolveu uma página HTML (ficheiro provavelmente NÃO está partilhado publicamente)";
         continue;
       }
       const wb = XLSX.read(new Uint8Array(buf), { type: "array", cellDates: true });
       processWorkbook(wb, GOOGLE_DRIVE_FILE_NAME);
-      mostrarDriveStatus("success", `Ficheiro carregado do Google Drive: ${GOOGLE_DRIVE_FILE_NAME}`);
+      mostrarDriveStatus("success", `✓ Ficheiro carregado do Google Drive: ${GOOGLE_DRIVE_FILE_NAME} (${(buf.byteLength/1024).toFixed(1)} KB)`);
       return;
     } catch (err) {
-      lastError = err.message;
+      // CORS errors normalmente caem aqui
+      lastError = err.message || "erro de rede/CORS";
     }
   }
 
+  let extra = "";
+  if (lastError && lastError.includes("HTML")) {
+    extra = " Vai ao Drive, partilha o ficheiro como 'Qualquer pessoa com o link' (Visualizador) e tenta de novo.";
+  } else if (lastError && (lastError.includes("CORS") || lastError.includes("Failed to fetch"))) {
+    extra = " Pode ser um problema temporário do Google. Tenta recarregar daqui a um momento ou usa upload manual.";
+  }
   mostrarDriveStatus("error",
-    `Não foi possível carregar do Google Drive (${lastError}). Podes carregar manualmente abaixo.`);
+    `Não foi possível carregar do Google Drive: ${lastError}.${extra} Podes sempre carregar manualmente abaixo.`);
 }
 
 function processWorkbook(wb, filename) {
