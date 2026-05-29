@@ -659,8 +659,8 @@
 //   poderá descarregar este ficheiro.
 //   Deixa GOOGLE_DRIVE_FILE_ID = "" para desativar o auto-load.
 // ============================================================
-const GOOGLE_DRIVE_FILE_ID = "COLA_AQUI_O_ID_DO_FICHEIRO";
-const GOOGLE_DRIVE_FILE_NAME = "ficheiro_remoto.xlsx"; // nome de apresentação
+const GOOGLE_DRIVE_FILE_ID = "1Tqzb7DbRPvkEbaIuwRHpkzaCiqadfv2a";
+const GOOGLE_DRIVE_FILE_NAME = "ranking.xlsx"; // nome de apresentação
 
 let allData = []; // raw normalised records
 let filteredData = [];
@@ -1715,7 +1715,7 @@ ub.addEventListener("drop", e => {
 });
 
 // === Auto-load from Google Drive on page open ===
-if (GOOGLE_DRIVE_FILE_ID && GOOGLE_DRIVE_FILE_ID !== "1Tqzb7DbRPvkEbaIuwRHpkzaCiqadfv2a") {
+if (GOOGLE_DRIVE_FILE_ID && GOOGLE_DRIVE_FILE_ID !== "COLA_AQUI_O_ID_DO_FICHEIRO") {
   // Carrega automaticamente quando a página abre
   carregarDoDrive();
 } else {
