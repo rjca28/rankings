@@ -475,6 +475,52 @@
   }
   .empty-tab .big-icon { font-size: 48px; margin-bottom: 12px; opacity: 0.5; }
   .empty-tab h3 { color: #4a5b71; margin-bottom: 6px; }
+
+  .esc-section {
+    background: white;
+    border-radius: 8px;
+    margin-bottom: 16px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+    overflow: hidden;
+  }
+  .esc-section-header {
+    background: linear-gradient(135deg, #003a70 0%, #0066b3 100%);
+    color: white;
+    padding: 12px 16px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  .esc-section-header .title { font-size: 15px; font-weight: 700; }
+  .esc-section-header .sub { font-size: 11px; opacity: 0.85; }
+  .esc-section-header.female { background: linear-gradient(135deg, #8b1a4b 0%, #c2185b 100%); }
+  .esc-section-header.male { background: linear-gradient(135deg, #0d3a7a 0%, #1565c0 100%); }
+  .esc-section-body { padding: 0; }
+  .esc-section table { width: 100%; }
+  .esc-section table thead { background: #f4f6f9; color: #003a70; }
+  .esc-section table thead th { color: #003a70; font-size: 11px; }
+  .esc-section .empty-row { padding: 16px; text-align: center; color: #8092a8; font-style: italic; }
+
+  .top-controls {
+    display: flex;
+    gap: 12px;
+    align-items: flex-end;
+    flex-wrap: wrap;
+    margin-bottom: 12px;
+  }
+  .top-controls .filter-group { min-width: 180px; }
+  .number-input-large {
+    padding: 10px 14px;
+    border: 2px solid #0066b3;
+    border-radius: 6px;
+    font-size: 18px;
+    font-weight: 700;
+    color: #003a70;
+    width: 90px;
+    text-align: center;
+  }
 </style>
 </head>
 <body>
@@ -497,6 +543,10 @@
   <button class="tab-btn" id="tabBtn3" onclick="mudarTab(3)" disabled>
     <span class="tab-icon">🏊</span>
     <span>Histórico Nadador</span>
+  </button>
+  <button class="tab-btn" id="tabBtn4" onclick="mudarTab(4)" disabled>
+    <span class="tab-icon">🏆</span>
+    <span>Top por Escalão</span>
   </button>
 </div>
 
@@ -679,6 +729,59 @@
 
 <div class="tab-content" id="tab3">
   <div class="panel">
+    <h2>Filtrar Nadadores</h2>
+    <div class="filters">
+      <div class="filter-group">
+        <label>Género</label>
+        <div class="gender-toggle" id="hGenderToggle">
+          <button type="button" class="active" data-gender="" onclick="setHistGenero('')">Ambos</button>
+          <button type="button" data-gender="F" onclick="setHistGenero('F')">♀ F</button>
+          <button type="button" data-gender="M" onclick="setHistGenero('M')">♂ M</button>
+        </div>
+        <input type="hidden" id="hSexo" value="">
+      </div>
+      <div class="filter-group">
+        <label>Escalão</label>
+        <select id="hEscalao" onchange="aplicarFiltrosHistorico()">
+          <option value="">Todos</option>
+          <option value="InfB" data-base="Infantis B">Infantis B</option>
+          <option value="InfA" data-base="Infantis A">Infantis A</option>
+          <option value="JuvB" data-base="Juvenis B">Juvenis B</option>
+          <option value="JuvA" data-base="Juvenis A">Juvenis A</option>
+          <option value="Jun" data-base="Juniores">Juniores</option>
+          <option value="Sen" data-base="Seniores">Seniores</option>
+          <option value="Inf" data-base="Infantis (A+B)">Infantis (A+B)</option>
+          <option value="Juv" data-base="Juvenis (A+B)">Juvenis (A+B)</option>
+        </select>
+      </div>
+      <div class="filter-group">
+        <label>Ano de Nascimento</label>
+        <select id="hAno" onchange="aplicarFiltrosHistorico()">
+          <option value="">Todos</option>
+        </select>
+      </div>
+      <div class="filter-group">
+        <label>Clube</label>
+        <select id="hClube" onchange="aplicarFiltrosHistorico()">
+          <option value="">Todos</option>
+        </select>
+      </div>
+      <div class="filter-group">
+        <label>Região</label>
+        <select id="hRegiao" onchange="aplicarFiltrosHistorico()">
+          <option value="">Todas</option>
+        </select>
+      </div>
+    </div>
+    <div class="actions">
+      <button class="secondary" onclick="limparFiltrosHistorico()">Limpar Filtros</button>
+      <div id="hMatchCount" style="margin-left:auto; padding:8px 14px; background:#f0f7ff; border-left:3px solid #0066b3; border-radius:4px; font-size:12px; color:#003a70; font-weight:600;">
+        — nadadores
+      </div>
+    </div>
+  </div>
+
+  <div class="panel">
     <h2>Selecionar Nadador</h2>
     <div class="swimmer-selector">
       <div class="filter-group">
@@ -695,11 +798,71 @@
       <div class="empty-tab">
         <div class="big-icon">🏊</div>
         <h3>Escolhe um nadador</h3>
-        <p>Escreve o nome e seleciona da lista, ou clica num nadador no ranking.</p>
+        <p>Aplica filtros acima para restringir a lista, depois escreve o nome e seleciona da lista.</p>
       </div>
     </div>
   </div>
 </div> <!-- /tab3 -->
+
+<div class="tab-content" id="tab4">
+  <div class="panel">
+    <h2>Top N por Escalão</h2>
+    <p style="color:#4a5b71; font-size:13px; margin-bottom:14px;">
+      Escolhe quantos nadadores mostrar por escalão e por género. O critério de classificação é a <strong>melhor pontuação FINA</strong> de cada nadador.
+    </p>
+    <div class="top-controls">
+      <div class="filter-group">
+        <label>Quantos por escalão</label>
+        <input type="number" id="tTopN" class="number-input-large" value="5" min="1" max="100">
+      </div>
+      <div class="filter-group">
+        <label>Género</label>
+        <select id="tSexo">
+          <option value="both">Ambos (separados)</option>
+          <option value="F">Apenas Feminino</option>
+          <option value="M">Apenas Masculino</option>
+          <option value="mixed">Misto (F+M juntos)</option>
+        </select>
+      </div>
+      <div class="filter-group">
+        <label>Critério de pontuação</label>
+        <select id="tCriterio">
+          <option value="any">Melhor pts FINA em qualquer prova</option>
+          <option value="prova">Numa prova específica</option>
+        </select>
+      </div>
+      <div class="filter-group" id="tProvaGroup" style="display:none;">
+        <label>Prova</label>
+        <select id="tProva"></select>
+      </div>
+      <div class="filter-group">
+        <label>Escalões a incluir</label>
+        <select id="tEscaloes" multiple size="3" style="min-height:auto; padding:4px;">
+          <option value="InfB" selected>Infantis B</option>
+          <option value="InfA" selected>Infantis A</option>
+          <option value="JuvB" selected>Juvenis B</option>
+          <option value="JuvA" selected>Juvenis A</option>
+          <option value="Jun" selected>Juniores</option>
+          <option value="Sen" selected>Seniores</option>
+        </select>
+        <small style="font-size:10px; color:#8092a8;">Ctrl/Cmd+clique para múltiplos</small>
+      </div>
+    </div>
+    <div class="actions">
+      <button class="primary" onclick="gerarTopEscaloes()">Gerar Top</button>
+      <button class="secondary" onclick="limparTop()">Limpar</button>
+      <button class="success" onclick="exportarTopExcel()" id="btnTopExcel" disabled>📊 Excel</button>
+      <button class="success" onclick="exportarTopPDF()" id="btnTopPDF" disabled>📕 PDF</button>
+    </div>
+  </div>
+  <div id="topArea">
+    <div class="empty-tab">
+      <div class="big-icon">🏆</div>
+      <h3>Configura e gera o Top</h3>
+      <p>Define quantos nadadores queres por escalão e clica em "Gerar Top".</p>
+    </div>
+  </div>
+</div> <!-- /tab4 -->
 
 <!-- Swimmer profile modal -->
 <div class="modal-overlay" id="swimmerModal" onclick="if(event.target===this)fecharModal()">
@@ -792,7 +955,7 @@ function getYear(d) {
 function mudarTab(n) {
   const btn = document.getElementById(`tabBtn${n}`);
   if (btn.disabled) return;
-  for (let i = 1; i <= 3; i++) {
+  for (let i = 1; i <= 4; i++) {
     document.getElementById(`tabBtn${i}`).classList.toggle("active", i === n);
     document.getElementById(`tab${i}`).classList.toggle("active", i === n);
   }
@@ -803,6 +966,7 @@ function mudarTab(n) {
 function ativarTabRanking(autoSwitch = true) {
   document.getElementById("tabBtn2").disabled = false;
   document.getElementById("tabBtn3").disabled = false;
+  document.getElementById("tabBtn4").disabled = false;
   if (autoSwitch) mudarTab(2);
 }
 
@@ -857,19 +1021,22 @@ function refletirEpocaNaUI() {
     `Inf B: ${SEASON.InfB}, Inf A: ${SEASON.InfA}, Juv B: ${SEASON.JuvB}, Juv A: ${SEASON.JuvA}, ` +
     `Jun: ${SEASON.JunStart}-${SEASON.JunEnd}, Sen: ≤${SEASON.Sen}`;
 
-  // Update escalao filter options with current years
-  const sel = document.getElementById("fEscalao");
-  [...sel.options].forEach(opt => {
-    const base = opt.dataset.base;
-    if (!base) return;
-    let suffix = "";
-    if (opt.value === "InfB") suffix = ` (${SEASON.InfB})`;
-    else if (opt.value === "InfA") suffix = ` (${SEASON.InfA})`;
-    else if (opt.value === "JuvB") suffix = ` (${SEASON.JuvB})`;
-    else if (opt.value === "JuvA") suffix = ` (${SEASON.JuvA})`;
-    else if (opt.value === "Jun") suffix = ` (${SEASON.JunStart}-${SEASON.JunEnd})`;
-    else if (opt.value === "Sen") suffix = ` (≤${SEASON.Sen})`;
-    opt.textContent = base + suffix;
+  // Update escalao filter options with current years (both tab 2 and tab 3)
+  ["fEscalao", "hEscalao"].forEach(selId => {
+    const sel = document.getElementById(selId);
+    if (!sel) return;
+    [...sel.options].forEach(opt => {
+      const base = opt.dataset.base;
+      if (!base) return;
+      let suffix = "";
+      if (opt.value === "InfB") suffix = ` (${SEASON.InfB})`;
+      else if (opt.value === "InfA") suffix = ` (${SEASON.InfA})`;
+      else if (opt.value === "JuvB") suffix = ` (${SEASON.JuvB})`;
+      else if (opt.value === "JuvA") suffix = ` (${SEASON.JuvA})`;
+      else if (opt.value === "Jun") suffix = ` (${SEASON.JunStart}-${SEASON.JunEnd})`;
+      else if (opt.value === "Sen") suffix = ` (≤${SEASON.Sen})`;
+      opt.textContent = base + suffix;
+    });
   });
 }
 
@@ -1161,15 +1328,48 @@ function populateFilters() {
   fr.innerHTML = '<option value="">Todas</option>';
   regioes.forEach(r => fr.innerHTML += `<option value="${r}">${r}</option>`);
 
-  // Lista de nadadores (datalist para tab 3)
-  const nadadores = [...new Set(allData.map(r => r.fullname).filter(n => n))].sort();
-  const dl = document.getElementById("swimmersList");
-  dl.innerHTML = "";
-  nadadores.forEach(n => {
-    const opt = document.createElement("option");
-    opt.value = n;
-    dl.appendChild(opt);
+  // === Filtros do separador Histórico (tab 3) ===
+  // Ano
+  const hAno = document.getElementById("hAno");
+  hAno.innerHTML = '<option value="">Todos</option>';
+  anos.forEach(a => hAno.innerHTML += `<option value="${a}">${a}</option>`);
+  // Clube
+  const hClube = document.getElementById("hClube");
+  hClube.innerHTML = '<option value="">Todos</option>';
+  clubes.forEach(c => hClube.innerHTML += `<option value="${c}">${c}</option>`);
+  // Região
+  const hRegiao = document.getElementById("hRegiao");
+  hRegiao.innerHTML = '<option value="">Todas</option>';
+  regioes.forEach(r => hRegiao.innerHTML += `<option value="${r}">${r}</option>`);
+  // Atualiza labels dos escalões com anos da época atual
+  const hEscSel = document.getElementById("hEscalao");
+  [...hEscSel.options].forEach(opt => {
+    const base = opt.dataset.base;
+    if (!base) return;
+    let suffix = "";
+    if (opt.value === "InfB") suffix = ` (${SEASON.InfB})`;
+    else if (opt.value === "InfA") suffix = ` (${SEASON.InfA})`;
+    else if (opt.value === "JuvB") suffix = ` (${SEASON.JuvB})`;
+    else if (opt.value === "JuvA") suffix = ` (${SEASON.JuvA})`;
+    else if (opt.value === "Jun") suffix = ` (${SEASON.JunStart}-${SEASON.JunEnd})`;
+    else if (opt.value === "Sen") suffix = ` (≤${SEASON.Sen})`;
+    opt.textContent = base + suffix;
   });
+
+  // Povoa lista de nadadores aplicando filtros atuais
+  aplicarFiltrosHistorico();
+
+  // === Provas para tab 4 (Top por Escalão) ===
+  const tProva = document.getElementById("tProva");
+  if (tProva) {
+    tProva.innerHTML = "";
+    provas.forEach(p => {
+      const opt = document.createElement("option");
+      opt.value = p;
+      opt.textContent = p;
+      tProva.appendChild(opt);
+    });
+  }
 }
 
 function aplicarFiltros() {
@@ -1811,6 +2011,87 @@ function exportarPerfilPDF() {
 let currentHistoryName = null;
 let currentHistoryRecords = []; // all records sorted, with isTop5 flag
 
+function setHistGenero(value) {
+  document.getElementById("hSexo").value = value;
+  document.querySelectorAll("#hGenderToggle button").forEach(btn => {
+    btn.classList.toggle("active", btn.dataset.gender === value);
+  });
+  aplicarFiltrosHistorico();
+}
+
+function aplicarFiltrosHistorico() {
+  if (!allData || allData.length === 0) return;
+  const hSexo = document.getElementById("hSexo").value;
+  const hEscalao = document.getElementById("hEscalao").value;
+  const hAno = document.getElementById("hAno").value;
+  const hClube = document.getElementById("hClube").value;
+  const hRegiao = document.getElementById("hRegiao").value;
+
+  // Filtra registos para descobrir nadadores correspondentes
+  const matches = allData.filter(r => {
+    if (hSexo && r.gender !== hSexo) return false;
+    if (hEscalao) {
+      if (hEscalao === "Inf") { if (r.escalao !== "InfA" && r.escalao !== "InfB") return false; }
+      else if (hEscalao === "Juv") { if (r.escalao !== "JuvA" && r.escalao !== "JuvB") return false; }
+      else if (r.escalao !== hEscalao) return false;
+    }
+    if (hAno && String(r.year) !== hAno) return false;
+    if (hClube && r.clubname !== hClube) return false;
+    if (hRegiao && r.region !== hRegiao) return false;
+    return true;
+  });
+
+  // Lista única de nadadores (com info para mostrar no autocomplete)
+  const seen = new Map();
+  matches.forEach(r => {
+    if (!r.fullname) return;
+    if (!seen.has(r.fullname)) {
+      seen.set(r.fullname, {
+        name: r.fullname,
+        year: r.year,
+        club: r.clubname,
+        gender: r.gender
+      });
+    }
+  });
+  const nadadores = [...seen.values()].sort((a, b) => a.name.localeCompare(b.name));
+
+  // Popula datalist com nome + info auxiliar
+  const dl = document.getElementById("swimmersList");
+  dl.innerHTML = "";
+  nadadores.forEach(n => {
+    const opt = document.createElement("option");
+    opt.value = n.name;
+    // Algumas browsers mostram o label/text como hint
+    const parts = [];
+    if (n.year) parts.push(String(n.year));
+    if (n.gender) parts.push(n.gender);
+    if (n.club) parts.push(n.club);
+    if (parts.length) opt.label = parts.join(" • ");
+    dl.appendChild(opt);
+  });
+
+  // Atualiza contador
+  const counter = document.getElementById("hMatchCount");
+  if (counter) {
+    counter.textContent = nadadores.length === 1
+      ? "1 nadador corresponde"
+      : `${nadadores.length} nadadores correspondem`;
+  }
+}
+
+function limparFiltrosHistorico() {
+  document.getElementById("hSexo").value = "";
+  document.querySelectorAll("#hGenderToggle button").forEach(btn => {
+    btn.classList.toggle("active", btn.dataset.gender === "");
+  });
+  document.getElementById("hEscalao").value = "";
+  document.getElementById("hAno").value = "";
+  document.getElementById("hClube").value = "";
+  document.getElementById("hRegiao").value = "";
+  aplicarFiltrosHistorico();
+}
+
 function limparHistorico() {
   document.getElementById("swimmerSearch").value = "";
   currentHistoryName = null;
@@ -2182,6 +2463,357 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
 });
+
+// === Tab 4: Top N por Escalão ===
+let currentTopData = null; // { escaloes: [{key, label, female: [...], male: [...], mixed: [...]}], config: {...} }
+
+const ESCALAO_DEFS = [
+  { key: "InfB", label: "Infantis B" },
+  { key: "InfA", label: "Infantis A" },
+  { key: "JuvB", label: "Juvenis B" },
+  { key: "JuvA", label: "Juvenis A" },
+  { key: "Jun", label: "Juniores" },
+  { key: "Sen", label: "Seniores" }
+];
+
+function escalaoYearRange(key) {
+  if (key === "InfB") return String(SEASON.InfB);
+  if (key === "InfA") return String(SEASON.InfA);
+  if (key === "JuvB") return String(SEASON.JuvB);
+  if (key === "JuvA") return String(SEASON.JuvA);
+  if (key === "Jun") return `${SEASON.JunStart}-${SEASON.JunEnd}`;
+  if (key === "Sen") return `≤${SEASON.Sen}`;
+  return "";
+}
+
+function limparTop() {
+  currentTopData = null;
+  document.getElementById("btnTopExcel").disabled = true;
+  document.getElementById("btnTopPDF").disabled = true;
+  document.getElementById("topArea").innerHTML = `
+    <div class="empty-tab">
+      <div class="big-icon">🏆</div>
+      <h3>Configura e gera o Top</h3>
+      <p>Define quantos nadadores queres por escalão e clica em "Gerar Top".</p>
+    </div>`;
+}
+
+// Toggle visibility of prova selector based on criterion
+document.addEventListener("DOMContentLoaded", () => {
+  const tCrit = document.getElementById("tCriterio");
+  if (tCrit) {
+    tCrit.addEventListener("change", () => {
+      document.getElementById("tProvaGroup").style.display = tCrit.value === "prova" ? "" : "none";
+    });
+  }
+});
+
+function gerarTopEscaloes() {
+  if (!allData || allData.length === 0) {
+    alert("Carrega primeiro um ficheiro Excel.");
+    return;
+  }
+  const N = Math.max(1, parseInt(document.getElementById("tTopN").value) || 5);
+  const sexoMode = document.getElementById("tSexo").value;
+  const criterio = document.getElementById("tCriterio").value;
+  const provaFiltro = criterio === "prova" ? document.getElementById("tProva").value : null;
+  const escSel = document.getElementById("tEscaloes");
+  const selectedEsc = [...escSel.selectedOptions].map(o => o.value);
+  const escSet = new Set(selectedEsc.length ? selectedEsc : ESCALAO_DEFS.map(e => e.key));
+
+  // Base records — aplicar filtro de prova se necessário
+  let baseRecords = allData;
+  if (provaFiltro) {
+    baseRecords = baseRecords.filter(r => r.prova === provaFiltro);
+  }
+
+  // Agrupar por escalão e género; manter o melhor registo de cada nadador
+  function bestPerSwimmer(records) {
+    // map fullname -> best record (max pts_fina, tie-break by min time)
+    const map = new Map();
+    records.forEach(r => {
+      if (!r.fullname) return;
+      const cur = map.get(r.fullname);
+      const better = !cur ||
+        (r.pts_fina || 0) > (cur.pts_fina || 0) ||
+        ((r.pts_fina || 0) === (cur.pts_fina || 0) && (r.swimtime_n || Infinity) < (cur.swimtime_n || Infinity));
+      if (better) map.set(r.fullname, r);
+    });
+    return [...map.values()].sort((a, b) => {
+      const d = (b.pts_fina || 0) - (a.pts_fina || 0);
+      if (d !== 0) return d;
+      return (a.swimtime_n || Infinity) - (b.swimtime_n || Infinity);
+    });
+  }
+
+  const result = { escaloes: [], config: { N, sexoMode, criterio, provaFiltro, generatedAt: new Date() } };
+
+  ESCALAO_DEFS.forEach(esc => {
+    if (!escSet.has(esc.key)) return;
+    const escRecords = baseRecords.filter(r => r.escalao === esc.key);
+    if (escRecords.length === 0) {
+      result.escaloes.push({ ...esc, yearRange: escalaoYearRange(esc.key), female: [], male: [], mixed: [] });
+      return;
+    }
+    const female = bestPerSwimmer(escRecords.filter(r => r.gender === "F")).slice(0, N);
+    const male = bestPerSwimmer(escRecords.filter(r => r.gender === "M")).slice(0, N);
+    const mixed = bestPerSwimmer(escRecords).slice(0, N);
+    result.escaloes.push({ ...esc, yearRange: escalaoYearRange(esc.key), female, male, mixed });
+  });
+
+  currentTopData = result;
+  renderTopEscaloes();
+  document.getElementById("btnTopExcel").disabled = false;
+  document.getElementById("btnTopPDF").disabled = false;
+}
+
+function renderTopEscaloes() {
+  if (!currentTopData) return;
+  const { escaloes, config } = currentTopData;
+  const provaInfo = config.provaFiltro ? `prova: ${config.provaFiltro}` : "melhor pts FINA em qualquer prova";
+
+  let html = `
+    <div class="panel" style="background:#f0f7ff; border-left:4px solid #0066b3;">
+      <strong style="color:#003a70;">Top ${config.N} por escalão</strong> —
+      Critério: ${provaInfo} — Gerado em ${config.generatedAt.toLocaleString("pt-PT")}
+    </div>
+  `;
+
+  escaloes.forEach(esc => {
+    if (config.sexoMode === "F" || config.sexoMode === "both") {
+      html += renderEscSection(esc, "female", "♀ " + esc.label + " Feminino", esc.yearRange, config.N);
+    }
+    if (config.sexoMode === "M" || config.sexoMode === "both") {
+      html += renderEscSection(esc, "male", "♂ " + esc.label + " Masculino", esc.yearRange, config.N);
+    }
+    if (config.sexoMode === "mixed") {
+      html += renderEscSection(esc, "mixed", esc.label + " (F+M)", esc.yearRange, config.N);
+    }
+  });
+
+  document.getElementById("topArea").innerHTML = html;
+}
+
+function renderEscSection(esc, key, title, yearRange, N) {
+  const list = esc[key] || [];
+  const headerCls = key === "female" ? "female" : (key === "male" ? "male" : "");
+
+  let body = "";
+  if (list.length === 0) {
+    body = '<div class="empty-row">Sem nadadores para este escalão</div>';
+  } else {
+    body = `
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th class="rank">#</th>
+              <th>Nome</th>
+              <th>Ano</th>
+              <th>Clube</th>
+              <th>Região</th>
+              <th>Prova</th>
+              <th>Tempo</th>
+              <th>Pts FINA</th>
+              <th>Competição</th>
+              <th>Data</th>
+            </tr>
+          </thead>
+          <tbody>
+    `;
+    list.forEach((r, i) => {
+      const rank = i + 1;
+      let rankCls = "rank";
+      if (rank === 1) rankCls += " top1";
+      else if (rank === 2) rankCls += " top2";
+      else if (rank === 3) rankCls += " top3";
+      const dt = parseDate(r.meetdate);
+      const safeName = String(r.fullname || "").replace(/'/g, "\\'");
+      body += `<tr>
+        <td class="${rankCls}">${rank}</td>
+        <td><span class="swimmer-link" onclick="abrirPerfil('${safeName}')">${r.fullname || ""}</span></td>
+        <td>${r.year || ""}</td>
+        <td>${r.clubname || ""}</td>
+        <td>${r.region || ""}</td>
+        <td>${r.prova}</td>
+        <td class="time">${r.swimtime || secondsToTime(r.swimtime_n)}</td>
+        <td class="pts">${r.pts_fina || 0}</td>
+        <td>${r.meetname || ""}</td>
+        <td>${dt ? dt.toLocaleDateString("pt-PT") : ""}</td>
+      </tr>`;
+    });
+    body += "</tbody></table></div>";
+  }
+
+  return `
+    <div class="esc-section">
+      <div class="esc-section-header ${headerCls}">
+        <div>
+          <div class="title">${title}</div>
+          <div class="sub">Ano ${yearRange} • ${list.length} de ${N} nadadores</div>
+        </div>
+      </div>
+      <div class="esc-section-body">${body}</div>
+    </div>
+  `;
+}
+
+function exportarTopExcel() {
+  if (!currentTopData) return;
+  try {
+    const { escaloes, config } = currentTopData;
+    const wb = XLSX.utils.book_new();
+
+    // Folha consolidada
+    const headers = ["Escalão","Género","Pos","Nome","Ano","Clube","Região","Prova","Tempo","Pts FINA","Competição","Data"];
+    const aoa = [headers];
+
+    function addRows(esc, key, sexLabel) {
+      const list = esc[key] || [];
+      list.forEach((r, i) => {
+        const dt = parseDate(r.meetdate);
+        aoa.push([
+          esc.label,
+          sexLabel,
+          i + 1,
+          r.fullname || "",
+          r.year || "",
+          r.clubname || "",
+          r.region || "",
+          r.prova,
+          r.swimtime || secondsToTime(r.swimtime_n),
+          r.pts_fina || 0,
+          r.meetname || "",
+          dt ? dt.toLocaleDateString("pt-PT") : ""
+        ]);
+      });
+    }
+
+    escaloes.forEach(esc => {
+      if (config.sexoMode === "F" || config.sexoMode === "both") addRows(esc, "female", "Feminino");
+      if (config.sexoMode === "M" || config.sexoMode === "both") addRows(esc, "male", "Masculino");
+      if (config.sexoMode === "mixed") addRows(esc, "mixed", "Misto");
+    });
+
+    const wsAll = XLSX.utils.aoa_to_sheet(aoa);
+    wsAll["!cols"] = [
+      {wch:14},{wch:11},{wch:5},{wch:30},{wch:6},{wch:30},{wch:10},
+      {wch:16},{wch:10},{wch:9},{wch:35},{wch:11}
+    ];
+    wsAll["!freeze"] = { xSplit: 0, ySplit: 1 };
+    XLSX.utils.book_append_sheet(wb, wsAll, "Top Consolidado");
+
+    // Folha de configuração
+    const cfg = [
+      ["Top por Escalão - Configuração"],
+      [],
+      ["Top N por escalão", config.N],
+      ["Modo de género", { F: "Apenas Feminino", M: "Apenas Masculino", both: "Ambos (separados)", mixed: "Misto (F+M)" }[config.sexoMode]],
+      ["Critério", config.provaFiltro ? `Prova específica: ${config.provaFiltro}` : "Melhor pts FINA em qualquer prova"],
+      ["Época", SEASON.name],
+      ["Gerado em", config.generatedAt.toLocaleString("pt-PT")],
+      ["Total de nadadores listados", aoa.length - 1]
+    ];
+    const wsCfg = XLSX.utils.aoa_to_sheet(cfg);
+    wsCfg["!cols"] = [{wch:30},{wch:50}];
+    XLSX.utils.book_append_sheet(wb, wsCfg, "Configuração");
+
+    XLSX.writeFile(wb, `top_escaloes_${todayISO()}.xlsx`);
+  } catch (err) {
+    console.error(err);
+    alert("Erro ao exportar Excel: " + err.message);
+  }
+}
+
+function exportarTopPDF() {
+  if (!currentTopData) return;
+  try {
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF({ orientation: "landscape", unit: "mm", format: "a4" });
+    const { escaloes, config } = currentTopData;
+    const pageW = doc.internal.pageSize.getWidth();
+    const pageH = doc.internal.pageSize.getHeight();
+
+    // Cover header
+    doc.setFillColor(0, 58, 112);
+    doc.rect(0, 0, pageW, 26, "F");
+    doc.setTextColor(255, 255, 255);
+    doc.setFontSize(16);
+    doc.setFont("helvetica", "bold");
+    doc.text(`Top ${config.N} por Escalão`, 14, 13);
+    doc.setFontSize(9);
+    doc.setFont("helvetica", "normal");
+    const subt = (config.provaFiltro ? `Prova: ${config.provaFiltro}` : "Melhor pts FINA em qualquer prova") +
+                 `   •   Época ${SEASON.name}   •   ${config.generatedAt.toLocaleString("pt-PT")}`;
+    doc.text(subt, 14, 20);
+    doc.setTextColor(0, 0, 0);
+
+    let y = 32;
+
+    function renderSection(esc, key, title) {
+      const list = esc[key] || [];
+      if (list.length === 0) return;
+      // Reserve at least ~30mm for the section; new page if needed
+      if (y > pageH - 30) { doc.addPage(); y = 14; }
+
+      // Section header bar
+      const isFem = key === "female";
+      const color = isFem ? [194, 24, 91] : (key === "male" ? [21, 101, 192] : [0, 58, 112]);
+      doc.setFillColor(...color);
+      doc.rect(10, y, pageW - 20, 7, "F");
+      doc.setTextColor(255, 255, 255);
+      doc.setFontSize(10);
+      doc.setFont("helvetica", "bold");
+      doc.text(`${title}  (Ano ${esc.yearRange})`, 12, y + 5);
+      doc.setTextColor(0, 0, 0);
+      y += 8;
+
+      const body = list.map((r, i) => {
+        const dt = parseDate(r.meetdate);
+        return [
+          String(i + 1),
+          r.fullname || "",
+          String(r.year || ""),
+          r.clubname || "",
+          r.prova,
+          r.swimtime || secondsToTime(r.swimtime_n),
+          String(r.pts_fina || 0),
+          r.meetname || "",
+          dt ? dt.toLocaleDateString("pt-PT") : ""
+        ];
+      });
+      doc.autoTable({
+        startY: y,
+        head: [["#","Nome","Ano","Clube","Prova","Tempo","Pts FINA","Competição","Data"]],
+        body: body,
+        headStyles: { fillColor: [240, 246, 252], textColor: [0, 58, 112], fontSize: 8, fontStyle: "bold" },
+        bodyStyles: { fontSize: 8 },
+        alternateRowStyles: { fillColor: [248, 250, 253] },
+        columnStyles: {
+          0: { halign: "center", cellWidth: 10, fontStyle: "bold" },
+          1: { fontStyle: "bold" },
+          2: { halign: "center", cellWidth: 12 },
+          5: { halign: "right" },
+          6: { halign: "right", textColor: [0,102,179], fontStyle: "bold" },
+          8: { halign: "center", cellWidth: 22 }
+        },
+        margin: { left: 10, right: 10 }
+      });
+      y = doc.lastAutoTable.finalY + 6;
+    }
+
+    escaloes.forEach(esc => {
+      if (config.sexoMode === "F" || config.sexoMode === "both") renderSection(esc, "female", "♀ " + esc.label + " Feminino");
+      if (config.sexoMode === "M" || config.sexoMode === "both") renderSection(esc, "male", "♂ " + esc.label + " Masculino");
+      if (config.sexoMode === "mixed") renderSection(esc, "mixed", esc.label + " (F+M)");
+    });
+
+    doc.save(`top_escaloes_${todayISO()}.pdf`);
+  } catch (err) {
+    console.error(err);
+    alert("Erro ao exportar PDF: " + err.message);
+  }
+}
 
 // Drag & drop
 const ub = document.getElementById("uploadBox");
