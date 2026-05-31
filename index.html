@@ -578,41 +578,41 @@
     <div class="season-grid">
       <div class="filter-group">
         <label>Nome da época</label>
-        <input type="text" id="cfgSeasonName" placeholder="ex: 2026/2027">
+        <input type="text" id="cfgSeasonName" placeholder="ex: 2025/2026">
       </div>
       <div class="filter-group">
         <label>Infantis B (1 ano)</label>
-        <input type="number" id="cfgInfB" placeholder="ex: 2014" min="1900" max="2100">
+        <input type="number" id="cfgInfB" placeholder="ex: 2013" min="1900" max="2100">
       </div>
       <div class="filter-group">
         <label>Infantis A (1 ano)</label>
-        <input type="number" id="cfgInfA" placeholder="ex: 2013" min="1900" max="2100">
+        <input type="number" id="cfgInfA" placeholder="ex: 2012" min="1900" max="2100">
       </div>
       <div class="filter-group">
         <label>Juvenis B (1 ano)</label>
-        <input type="number" id="cfgJuvB" placeholder="ex: 2012" min="1900" max="2100">
+        <input type="number" id="cfgJuvB" placeholder="ex: 2011" min="1900" max="2100">
       </div>
       <div class="filter-group">
         <label>Juvenis A (1 ano)</label>
-        <input type="number" id="cfgJuvA" placeholder="ex: 2011" min="1900" max="2100">
+        <input type="number" id="cfgJuvA" placeholder="ex: 2010" min="1900" max="2100">
       </div>
       <div class="filter-group">
         <label>Juniores - ano início (2 anos)</label>
-        <input type="number" id="cfgJunStart" placeholder="ex: 2009" min="1900" max="2100">
+        <input type="number" id="cfgJunStart" placeholder="ex: 2008" min="1900" max="2100">
       </div>
       <div class="filter-group">
         <label>Juniores - ano fim</label>
-        <input type="number" id="cfgJunEnd" placeholder="ex: 2010" min="1900" max="2100">
+        <input type="number" id="cfgJunEnd" placeholder="ex: 2009" min="1900" max="2100">
       </div>
       <div class="filter-group">
         <label>Seniores (este ano e + velhos)</label>
-        <input type="number" id="cfgSen" placeholder="ex: 2008" min="1900" max="2100">
+        <input type="number" id="cfgSen" placeholder="ex: 2007" min="1900" max="2100">
       </div>
     </div>
     <div class="actions">
       <button class="primary" onclick="guardarEpoca()">Guardar Época</button>
       <button class="secondary" onclick="proximaEpoca()">→ Avançar 1 época</button>
-      <button class="secondary" onclick="reporEpocaDefault()">Repor 2026/2027</button>
+      <button class="secondary" onclick="reporEpocaDefault()">Repor 2025/2026</button>
     </div>
   </details>
 </div>
@@ -983,14 +983,14 @@ function atualizarBadgeTab() {
 
 // === Season configuration (persisted in localStorage) ===
 const DEFAULT_SEASON = {
-  name: "2026/2027",
-  InfB: 2014,
-  InfA: 2013,
-  JuvB: 2012,
-  JuvA: 2011,
-  JunStart: 2009,
-  JunEnd: 2010,
-  Sen: 2008
+  name: "2025/2026",
+  InfB: 2013,
+  InfA: 2012,
+  JuvB: 2011,
+  JuvA: 2010,
+  JunStart: 2008,
+  JunEnd: 2009,
+  Sen: 2007
 };
 let SEASON = { ...DEFAULT_SEASON };
 
@@ -998,7 +998,22 @@ function carregarEpoca() {
   try {
     const saved = localStorage.getItem("fpn_season_config");
     if (saved) {
-      SEASON = { ...DEFAULT_SEASON, ...JSON.parse(saved) };
+      const parsed = JSON.parse(saved);
+      // Migração automática: se o localStorage tem a antiga época default
+      // (2026/2027 que estava 1 ano adiantada), substitui pelo novo default
+      // sem destruir customizações do utilizador.
+      const isOldDefault =
+        parsed.name === "2026/2027" &&
+        parsed.InfB === 2014 && parsed.InfA === 2013 &&
+        parsed.JuvB === 2012 && parsed.JuvA === 2011 &&
+        parsed.JunStart === 2009 && parsed.JunEnd === 2010 &&
+        parsed.Sen === 2008;
+      if (isOldDefault) {
+        SEASON = { ...DEFAULT_SEASON };
+        localStorage.setItem("fpn_season_config", JSON.stringify(SEASON));
+      } else {
+        SEASON = { ...DEFAULT_SEASON, ...parsed };
+      }
     }
   } catch (e) { /* ignore */ }
   refletirEpocaNaUI();
